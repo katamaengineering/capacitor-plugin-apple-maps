@@ -44,13 +44,13 @@ npm run ios                                  # build + open Xcode
 
 Google Maps needs an API key (enable *Maps SDK for Android* and *Maps JavaScript
 API* for it). Without one the app shows a hint instead of a map — it never
-crashes. Set the **same key** in two places:
+crashes.
 
-1. **Web + the on/off signal** — copy `.env.example` to `.env` and set
-   `VITE_GOOGLE_MAPS_API_KEY`.
-2. **Android native** — set `MAPS_API_KEY` in `android/gradle.properties` (or
-   `~/.gradle/gradle.properties`). It fills the `com.google.android.geo.API_KEY`
-   placeholder already wired into the manifest.
+Set it in **one place**: copy `.env.example` to `.env` and set
+`VITE_GOOGLE_MAPS_API_KEY`. `.env` is gitignored, so the key never lands in a
+committed file. The Android build reads the same `.env`
+(`android/app/build.gradle` copies it into the manifest's
+`com.google.android.geo.API_KEY`), so there's nothing to set in `gradle.properties`.
 
 ```bash
 npm start                                        # web dev server

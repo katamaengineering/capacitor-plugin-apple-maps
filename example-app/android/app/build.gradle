@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+// Read the Google Maps key from the app's .env (VITE_GOOGLE_MAPS_API_KEY) so the
+// key lives in exactly one place — the gitignored .env — with no risk of
+// committing it. Falls back to a VITE_GOOGLE_MAPS_API_KEY env var (handy for CI).
+def googleMapsKey = System.getenv('VITE_GOOGLE_MAPS_API_KEY') ?: ''
+def dotenv = rootProject.file('../.env')
+if (!googleMapsKey && dotenv.exists()) {
+    dotenv.eachLine { line ->
+        def matcher = (line =~ /^\s*VITE_GOOGLE_MAPS_API_KEY\s*=\s*(.+?)\s*$/)
+        if (matcher.find()) { googleMapsKey = matcher.group(1) }
+    }
+}
+
 android {
     namespace = "com.example.plugin"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -10,10 +22,9 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        // Fills the ${MAPS_API_KEY} placeholder in AndroidManifest.xml. Set
-        // MAPS_API_KEY in android/gradle.properties or ~/.gradle/gradle.properties;
-        // defaults to empty so an unconfigured build still assembles.
-        manifestPlaceholders = [MAPS_API_KEY: (project.findProperty("MAPS_API_KEY") ?: "")]
+        // Fills the ${MAPS_API_KEY} placeholder in AndroidManifest.xml from the
+        // .env key read above; empty when unset so the build still assembles.
+        manifestPlaceholders = [MAPS_API_KEY: googleMapsKey]
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61

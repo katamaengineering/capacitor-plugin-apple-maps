@@ -27,27 +27,18 @@
   let map: AppleMap | GoogleMap | undefined;
   let note = $state('');
 
-  const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
-
-  // The native map attaches to a scroll view WebKit only materialises once the
-  // element is upgraded AND laid out with a real size. Creating before then
-  // leaves the map resolved-but-invisible, so wait for non-zero width+height.
-  async function waitForLayout(el: HTMLElement, tries = 40): Promise<void> {
-    for (let i = 0; i < tries; i++) {
-      const rect = el.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) return;
-      await nextFrame();
-    }
-  }
+  // Android draws the Google map BEHIND the webview and shows it through a
+  // transparent element, so every layer above the map must be see-through or you
+  // just see the page background. iOS/web render the map into the element itself.
+  const isAndroid = Capacitor.getPlatform() === 'android';
 
   onMount(async () => {
+    if (isAndroid) document.documentElement.classList.add('android-underlay');
     if (needsKey || !element) return;
     try {
-      await waitForLayout(element);
-      for (let i = 0; i < 5; i++) await nextFrame();
-
-      // forceCreate rebuilds the native view for this id rather than reusing a
-      // stale one left over from a previous mount (which resolves but shows nothing).
+      // create() waits for the element's layout internally, so there's nothing
+      // to poll for here. forceCreate rebuilds the native view for this id
+      // rather than reusing a stale one from a previous mount.
       map = isIOS
         ? await AppleMap.create({ id: 'map', element, config: { center, zoom: 11 }, forceCreate: true })
         : await GoogleMap.create({ id: 'map', element, apiKey: googleKey, config: { center, zoom: 11 }, forceCreate: true });
@@ -90,6 +81,12 @@
     margin: 0;
     height: 100%;
     background: #0b1020;
+  }
+  /* Android renders the Google map behind the webview — the page above it must
+     be transparent for the map to show through. */
+  :global(html.android-underlay),
+  :global(html.android-underlay body) {
+    background: transparent;
   }
   .app {
     display: flex;

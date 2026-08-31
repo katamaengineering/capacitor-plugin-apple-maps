@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3]
+
+### Fixed
+
+- `AppleMap.create` could resolve with an invisible (blank) map, intermittently
+  and especially after a warm relaunch. A flex/grid child gets its full width a
+  frame or two before its height and final position, and `create` measured the
+  element too early, placing the native map against a stale frame. `create` now
+  waits for the element's box to **settle** (non-zero and unchanged across a few
+  frames) before measuring, and the size wait requires a non-zero width **and**
+  height (previously width only). Callers no longer need to poll for layout
+  themselves before creating the map.
+
 ## [0.3.2]
 
 ### Fixed
