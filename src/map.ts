@@ -73,6 +73,13 @@ export class AppleMap {
     newMap.element = options.element;
     newMap.element.dataset.internalId = options.id;
 
+    // Wait until the element's box has settled — non-zero and unchanged across a
+    // few frames — BEFORE measuring it. On a warm relaunch the element gets its
+    // width first and its height (and final position) a few frames later; if we
+    // measure too early the native map is placed against a stale frame and comes
+    // up blank. Measuring only once the box is stable is what a caller otherwise
+    // has to arrange with its own layout wait.
+    await AppleMap.settleLayout(options.element);
     const bounds = await AppleMap.getElementBounds(options.element);
     options.config.width = bounds.width;
     options.config.height = bounds.height;
@@ -111,7 +118,9 @@ export class AppleMap {
       window.addEventListener('resize', newMap.handleScrollEvent);
     }
 
-    // Small delay so iOS WKWebView has set up the element's child scroll view.
+    // Short settle so iOS WKWebView has materialised the element's child scroll
+    // view (created off the `overflow: scroll` its connectedCallback set) before
+    // the native map attaches to it.
     await new Promise<void>((resolve, reject) => {
       setTimeout(async () => {
         try {
@@ -126,17 +135,56 @@ export class AppleMap {
     return newMap;
   }
 
+  /** Resolve on the next animation frame (or ~a frame later where none exists). */
+  private static nextFrame(): Promise<void> {
+    return new Promise((resolve) => {
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => resolve());
+      } else {
+        setTimeout(resolve, 16);
+      }
+    });
+  }
+
+  /**
+   * Wait until the element's bounding box is non-zero and unchanged across a few
+   * consecutive frames, i.e. layout has settled. Bounded so a genuinely
+   * zero-sized element resolves rather than hanging.
+   */
+  private static async settleLayout(element: HTMLElement, maxFrames = 60): Promise<void> {
+    let prev = element.getBoundingClientRect();
+    let stable = 0;
+    for (let i = 0; i < maxFrames; i++) {
+      await AppleMap.nextFrame();
+      const rect = element.getBoundingClientRect();
+      const unchanged =
+        rect.width === prev.width && rect.height === prev.height && rect.x === prev.x && rect.y === prev.y;
+      if (rect.width > 0 && rect.height > 0 && unchanged) {
+        if (++stable >= 3) return;
+      } else {
+        stable = 0;
+      }
+      prev = rect;
+    }
+  }
+
   private static getElementBounds(element: HTMLElement): Promise<DOMRect> {
+    // Wait for BOTH width and height, not just width: a flex/grid child is
+    // often laid out with its full width a frame or two before it gets its
+    // height, and creating the native map against a zero-height rect renders it
+    // invisibly (a resolved-but-blank map). Checking only width was enough to
+    // miss that and hand back a zero-height bounds.
+    const isReady = (rect: DOMRect): boolean => rect.width !== 0 && rect.height !== 0;
     return new Promise((resolve) => {
       let bounds = element.getBoundingClientRect();
-      if (bounds.width !== 0) {
+      if (isReady(bounds)) {
         resolve(bounds);
         return;
       }
       let retries = 0;
       const interval = setInterval(() => {
         bounds = element.getBoundingClientRect();
-        if (bounds.width !== 0 || retries >= 30) {
+        if (isReady(bounds) || retries >= 30) {
           if (retries >= 30) console.warn('AppleMap: element size could not be determined');
           clearInterval(interval);
           resolve(bounds);

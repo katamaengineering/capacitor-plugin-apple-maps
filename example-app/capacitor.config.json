@@ -1,10 +1,5 @@
 {
   "appId": "com.example.plugin",
-  "appName": "example-app",
-  "webDir": "dist",
-  "plugins": {
-    "SplashScreen": {
-      "launchAutoHide": false
-    }
-  }
+  "appName": "Apple/Google Maps",
+  "webDir": "dist"
 }

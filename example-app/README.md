@@ -1,12 +1,60 @@
-## Created with Capacitor Create App
+# Example: Apple Maps + Google Maps, one API
 
-This app was created using [`@capacitor/create-app`](https://github.com/ionic-team/create-capacitor-app),
-and comes with a very minimal shell for building an app.
+A deliberately tiny [Svelte](https://svelte.dev) + Capacitor app showing the
+whole point of this plugin: **iOS renders Apple Maps (MapKit), Android and web
+render Google Maps, from one shared API.**
 
-### Running this example
+The entire app is [`src/App.svelte`](src/App.svelte). The only place it branches
+on platform is picking the provider — after that, `create`, `addMarkers`, and
+the listeners are identical:
 
-To run the provided example, you can use `npm start` command.
+```ts
+const isIOS = Capacitor.getPlatform() === 'ios';
+
+map = isIOS
+  ? await AppleMap.create({ id: 'map', element, config: { center, zoom: 11 } })
+  : await GoogleMap.create({ id: 'map', element, apiKey: googleKey, config: { center, zoom: 11 } });
+
+await map.addMarkers([{ coordinate: center, title: 'San Francisco' }]);
+await map.setOnMarkerClickListener((data) => (tapped = data.title ?? data.markerId));
+```
+
+The markers pass **no `iconUrl`** — each provider draws its own default pin
+(Apple Maps does this as of plugin 0.3.2).
+
+The markers also pass **no `iconUrl`** — each provider draws its own default pin
+(Apple Maps does this as of plugin 0.3.2).
+
+## Run it
 
 ```bash
-npm start
+npm install
+```
+
+### iOS — Apple Maps, no API key needed
+
+```bash
+npm run sim:ios                              # build + boot a simulator (picker)
+npm run targets:ios                          # list simulators + IDs
+npm run sim:ios -- --target <simulator-id>   # boot a specific one
+npm run ios                                  # build + open Xcode
+```
+
+### Android / web — Google Maps, needs a key
+
+Google Maps needs an API key (enable *Maps SDK for Android* and *Maps JavaScript
+API* for it). Without one the app shows a hint instead of a map — it never
+crashes.
+
+Set it in **one place**: copy `.env.example` to `.env` and set
+`VITE_GOOGLE_MAPS_API_KEY`. `.env` is gitignored, so the key never lands in a
+committed file. The Android build reads the same `.env`
+(`android/app/build.gradle` copies it into the manifest's
+`com.google.android.geo.API_KEY`), so there's nothing to set in `gradle.properties`.
+
+```bash
+npm start                                        # web dev server
+npm run sim:android                              # build + boot the emulator
+npm run sim:android -- --target <emulator-id>    # a specific one (targets:android to list)
+npm run android                                  # build + open Android Studio
 ```
