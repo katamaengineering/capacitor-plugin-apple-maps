@@ -41,7 +41,8 @@ export interface Marker {
   title?: string;
   /**
    * Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`),
-   * an `https:` URL, or a `data:` URI. SVG is not supported by MapKit.
+   * an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. Omit it
+   * to get MapKit's native default pin.
    */
   iconUrl?: string;
   /** Logical size in points. */
