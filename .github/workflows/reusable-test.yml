@@ -1,0 +1,52 @@
+name: Reusable Tests
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  # JavaScript/TypeScript: lint, format check, and the dist build.
+  js:
+    name: JS (lint + build)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout 🛒
+        uses: actions/checkout@v7
+      - name: node 24 ❇️
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: 'npm'
+      - name: install dependencies 📦
+        run: npm ci
+      - name: eslint 🧹
+        run: npm run eslint
+      - name: prettier ✨
+        run: npm run prettier -- --check
+      - name: build 📦
+        run: npm run build
+
+  # Native iOS: SwiftLint plus an Xcode build and unit-test run on a simulator.
+  # Must run on macOS — Ubuntu has no Xcode/MapKit.
+  ios:
+    name: iOS (SwiftLint + build + test)
+    runs-on: macos-15
+    steps:
+      - name: checkout 🛒
+        uses: actions/checkout@v7
+      - name: node 24 ❇️
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: 'npm'
+      - name: install dependencies 📦
+        run: npm ci
+      - name: swiftlint 🧹
+        # SwiftLint is preinstalled on the macOS runner. Advisory only — style
+        # nits should not block a release.
+        run: npm run swiftlint -- lint
+        continue-on-error: true
+      - name: build & unit test 🧪
+        run: npm run test:ios

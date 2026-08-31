@@ -1,0 +1,52 @@
+name: Publish NPM
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    uses: ./.github/workflows/reusable-test.yml
+
+  publish:
+    needs: [tests]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Ensure npm supports OIDC trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Update version from tag
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG_NAME#v}  # Remove 'v' prefix if present
+          echo "Setting version to: $VERSION"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          echo "package.json version is now: $(node -p "require('./package.json').version")"
+
+      # Auth is via npm OIDC trusted publishing — no token needed. Requires the
+      # `id-token: write` permission above and a trusted publisher configured for
+      # this package on npmjs.com. Provenance is attached automatically.
+      - name: Publish to npm
+        run: npm publish --provenance --access public

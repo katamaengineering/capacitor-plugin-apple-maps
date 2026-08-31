@@ -1,10 +1,58 @@
 import { WebPlugin } from '@capacitor/core';
 
-import type { CapacitorAppleMapsPlugin } from './definitions';
+import type { CapacitorAppleMapsPlugin, LatLngBounds } from './definitions';
 
+/**
+ * Web fallback. Apple Maps is a native MapKit feature with no web surface here,
+ * so every method rejects with `unavailable`. The host app should route web
+ * (and Android) to another map provider rather than calling this plugin.
+ */
 export class CapacitorAppleMapsWeb extends WebPlugin implements CapacitorAppleMapsPlugin {
-  async echo(options: { value: string }): Promise<{ value: string }> {
-    console.log('ECHO', options);
-    return options;
+  private notAvailable(): never {
+    throw this.unavailable('Apple Maps is only available on iOS.');
+  }
+
+  async create(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async destroy(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async setCamera(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async getMapBounds(): Promise<LatLngBounds> {
+    this.notAvailable();
+  }
+
+  async addMarkers(): Promise<{ ids: string[] }> {
+    this.notAvailable();
+  }
+
+  async removeMarkers(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async enableClustering(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async disableClustering(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async onResize(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async onDisplay(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async onScroll(): Promise<void> {
+    this.notAvailable();
   }
 }
