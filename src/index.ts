@@ -1,4 +1,4 @@
-import type { SearchCompletion } from './definitions';
+import type { SearchCompletion, SearchRegion } from './definitions';
 import { CapacitorAppleMaps } from './implementation';
 
 export * from './definitions';
@@ -10,7 +10,10 @@ export type { CreateMapArgs } from './map';
  * Native place autocomplete (iOS, `MKLocalSearchCompleter`). No API key needed.
  * Returns suggestions keyed by an opaque id; resolve one with {@link searchResolve}.
  */
-export function searchAutocomplete(options: { query: string }): Promise<{ results: SearchCompletion[] }> {
+export function searchAutocomplete(options: {
+  query: string;
+  region?: SearchRegion;
+}): Promise<{ results: SearchCompletion[] }> {
   return CapacitorAppleMaps.searchAutocomplete(options);
 }
 

@@ -12,7 +12,7 @@ export interface LatLng {
 /**
  * Initial map configuration. The `width`/`height`/`x`/`y`/`devicePixelRatio`
  * fields are populated by the {@link AppleMap} wrapper from the bound element's
- * bounding rectangle — callers do not set them.
+ * bounding rectangle - callers do not set them.
  */
 export interface AppleMapConfig {
   center: LatLng;
@@ -94,6 +94,17 @@ export interface SearchCompletion {
 }
 
 /**
+ * Region to bias autocomplete toward - pass the map's current center so results
+ * favour the area in view. Deltas default to 1° if omitted.
+ */
+export interface SearchRegion {
+  latitude: number;
+  longitude: number;
+  latitudeDelta?: number;
+  longitudeDelta?: number;
+}
+
+/**
  * Low-level bridge to the native MapKit implementation. Most callers should use
  * the {@link AppleMap} wrapper instead of these methods directly.
  */
@@ -112,7 +123,7 @@ export interface CapacitorAppleMapsPlugin {
    * Each result carries an opaque `id`; pass it to {@link searchResolve} to get
    * coordinates.
    */
-  searchAutocomplete(options: { query: string }): Promise<{ results: SearchCompletion[] }>;
+  searchAutocomplete(options: { query: string; region?: SearchRegion }): Promise<{ results: SearchCompletion[] }>;
   /**
    * Resolve an autocomplete result `id` to coordinates via `MKLocalSearch`.
    * Returns an empty object if the id is unknown or has no location.

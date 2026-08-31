@@ -22,8 +22,8 @@ enum AppleMapsError: Error, LocalizedError {
 // spans. These helpers convert between the two using the web-mercator tile
 // relationship: the whole world (360°) is `256 * 2^zoom` points wide, so a
 // viewport `widthPoints` points wide spans `360 * widthPoints / (256 * 2^zoom)`
-// degrees of longitude. The round trip is approximate — MapKit adjusts spans to
-// the view's aspect ratio — which is fine for the host app's radius estimates.
+// degrees of longitude. The round trip is approximate - MapKit adjusts spans to
+// the view's aspect ratio - which is fine for the host app's radius estimates.
 
 func zoomToLongitudeDelta(_ zoom: Double, widthPoints: Double) -> Double {
     let width = widthPoints > 0 ? widthPoints : 256.0
@@ -34,6 +34,21 @@ func longitudeDeltaToZoom(_ delta: Double, widthPoints: Double) -> Double {
     let width = widthPoints > 0 ? widthPoints : 256.0
     let safeDelta = delta > 0 ? delta : 0.0001
     return log2(360.0 * width / (256.0 * safeDelta))
+}
+
+/// The corner coordinates of a region, used to report the visible bounds to JS.
+/// Pure function so it can be unit-tested without an `MKMapView`.
+func regionCorners(center: CLLocationCoordinate2D, span: MKCoordinateSpan)
+    -> (southwest: CLLocationCoordinate2D, northeast: CLLocationCoordinate2D) {
+    let southwest = CLLocationCoordinate2D(
+        latitude: center.latitude - span.latitudeDelta / 2,
+        longitude: center.longitude - span.longitudeDelta / 2
+    )
+    let northeast = CLLocationCoordinate2D(
+        latitude: center.latitude + span.latitudeDelta / 2,
+        longitude: center.longitude + span.longitudeDelta / 2
+    )
+    return (southwest, northeast)
 }
 
 // MARK: - Annotation
@@ -166,18 +181,11 @@ public class Map: NSObject {
     /// Must be called on the main thread. Shape matches `LatLngBounds` in JS.
     func boundsPayload() -> PluginCallResultData {
         let region = mapView.region
-        let center = region.center
-        let span = region.span
+        let corners = regionCorners(center: region.center, span: region.span)
         return [
-            "center": ["lat": center.latitude, "lng": center.longitude],
-            "southwest": [
-                "lat": center.latitude - span.latitudeDelta / 2,
-                "lng": center.longitude - span.longitudeDelta / 2
-            ],
-            "northeast": [
-                "lat": center.latitude + span.latitudeDelta / 2,
-                "lng": center.longitude + span.longitudeDelta / 2
-            ]
+            "center": ["lat": region.center.latitude, "lng": region.center.longitude],
+            "southwest": ["lat": corners.southwest.latitude, "lng": corners.southwest.longitude],
+            "northeast": ["lat": corners.northeast.latitude, "lng": corners.northeast.longitude]
         ]
     }
 
@@ -287,7 +295,7 @@ public class Map: NSObject {
             return nil
         }
 
-        // Bundled web asset — Capacitor copies the web `static/` dir into the app
+        // Bundled web asset - Capacitor copies the web `static/` dir into the app
         // bundle under `public/`.
         if let image = UIImage(named: "public/\(iconUrl)") {
             iconCache[iconUrl] = image

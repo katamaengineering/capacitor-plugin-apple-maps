@@ -3,12 +3,12 @@
 Renders a **native Apple Maps (MapKit)** view on iOS from a Capacitor app. The
 `AppleMap` wrapper class deliberately mirrors the subset of
 [`@capacitor/google-maps`](https://github.com/ionic-team/capacitor-plugins/tree/main/google-maps)'
-`GoogleMap` API that a meeting/venue finder needs — create, camera, markers,
-clustering, and camera-idle / marker-click events — so an app can route **iOS to
+`GoogleMap` API that a meeting/venue finder needs - create, camera, markers,
+clustering, and camera-idle / marker-click events - so an app can route **iOS to
 Apple Maps and Android/web to Google Maps** behind one thin abstraction.
 
 - **iOS only.** MapKit is a native iOS framework and needs no API key. On web
-  and Android every method rejects with `unavailable` — the host app is expected
+  and Android every method rejects with `unavailable` - the host app is expected
   to use another provider on those platforms.
 - **No external dependencies.** Uses the system `MapKit` framework; the only SPM
   dependency is `capacitor-swift-pm`.
@@ -53,7 +53,7 @@ await map.enableClustering();
 ```
 
 Marker icons resolve from three sources: a **bundled web asset** filename
-(copied into the app bundle under `public/` — e.g. `marker-blue.png` from your
+(copied into the app bundle under `public/` - e.g. `marker-blue.png` from your
 web `static/`), an **`https:` URL**, or a **`data:` URI**. SVG is not supported.
 
 ### Sharing one abstraction with `@capacitor/google-maps`
@@ -219,16 +219,16 @@ disableClustering(options: { id: string; }) => Promise<void>
 ### searchAutocomplete(...)
 
 ```typescript
-searchAutocomplete(options: { query: string; }) => Promise<{ results: SearchCompletion[]; }>
+searchAutocomplete(options: { query: string; region?: SearchRegion; }) => Promise<{ results: SearchCompletion[]; }>
 ```
 
 Native place autocomplete via `MKLocalSearchCompleter`. Needs no API key.
 Each result carries an opaque `id`; pass it to {@link searchResolve} to get
 coordinates.
 
-| Param         | Type                            |
-| ------------- | ------------------------------- |
-| **`options`** | <code>{ query: string; }</code> |
+| Param         | Type                                                                               |
+| ------------- | ---------------------------------------------------------------------------------- |
+| **`options`** | <code>{ query: string; region?: <a href="#searchregion">SearchRegion</a>; }</code> |
 
 **Returns:** <code>Promise&lt;{ results: SearchCompletion[]; }&gt;</code>
 
@@ -353,7 +353,7 @@ addListener(eventName: 'onMapReady', listenerFunc: (data: MapReadyCallbackData) 
 
 Initial map configuration. The `width`/`height`/`x`/`y`/`devicePixelRatio`
 fields are populated by the {@link AppleMap} wrapper from the bound element's
-bounding rectangle — callers do not set them.
+bounding rectangle - callers do not set them.
 
 | Prop                   | Type                                      | Description                                                                            |
 | ---------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------- |
@@ -418,6 +418,19 @@ One native autocomplete suggestion.
 | **`id`**       | <code>string</code> | Opaque id to pass to `searchResolve`.              |
 | **`title`**    | <code>string</code> | Primary line, e.g. a street address or place name. |
 | **`subtitle`** | <code>string</code> | Secondary line, e.g. the city/region.              |
+
+
+#### SearchRegion
+
+Region to bias autocomplete toward - pass the map's current center so results
+favour the area in view. Deltas default to 1° if omitted.
+
+| Prop                 | Type                |
+| -------------------- | ------------------- |
+| **`latitude`**       | <code>number</code> |
+| **`longitude`**      | <code>number</code> |
+| **`latitudeDelta`**  | <code>number</code> |
+| **`longitudeDelta`** | <code>number</code> |
 
 
 #### MapBounds

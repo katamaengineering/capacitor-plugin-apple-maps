@@ -11,7 +11,7 @@ class SearchService: NSObject, MKLocalSearchCompleterDelegate {
     private var pendingCall: CAPPluginCall?
     private var completions: [String: MKLocalSearchCompletion] = [:]
 
-    /// Lazily create the completer on the main thread — MapKit delivers its
+    /// Lazily create the completer on the main thread - MapKit delivers its
     /// delegate callbacks on the run loop it is configured on.
     private func ensureCompleter() {
         if completer == nil {
@@ -24,6 +24,7 @@ class SearchService: NSObject, MKLocalSearchCompleterDelegate {
 
     func autocomplete(_ call: CAPPluginCall) {
         let query = call.getString("query") ?? ""
+        let regionObj = call.getObject("region")
         DispatchQueue.main.async {
             // Only the newest query matters; settle any in-flight call so its
             // promise never dangles.
@@ -36,8 +37,27 @@ class SearchService: NSObject, MKLocalSearchCompleterDelegate {
             }
 
             self.ensureCompleter()
+            guard let completer = self.completer else {
+                call.resolve(["results": []])
+                return
+            }
+
+            // Optional region bias so results favour the area the user is
+            // looking at (e.g. New England rather than a same-named place
+            // elsewhere in the country).
+            if let region = regionObj,
+               let lat = region["latitude"] as? Double,
+               let lng = region["longitude"] as? Double {
+                let latDelta = region["latitudeDelta"] as? Double ?? 1.0
+                let lngDelta = region["longitudeDelta"] as? Double ?? 1.0
+                completer.region = MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                    span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lngDelta)
+                )
+            }
+
             self.pendingCall = call
-            self.completer?.queryFragment = query
+            completer.queryFragment = query
         }
     }
 

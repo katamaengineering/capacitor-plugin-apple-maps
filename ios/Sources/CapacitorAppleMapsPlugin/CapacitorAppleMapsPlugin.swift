@@ -204,7 +204,7 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         guard let map = findMap(for: mapView) else { return }
 
         if map.isAdjustingRegion {
-            // This callback is the settle after our own clamp — clear the guard
+            // This callback is the settle after our own clamp - clear the guard
             // and report the corrected camera.
             map.isAdjustingRegion = false
         } else if let minZoom = map.config.minZoom, map.currentZoom() < minZoom - 0.01 {

@@ -25,7 +25,7 @@ export interface CreateMapArgs {
 /**
  * Custom element the native map mounts into. On iOS it is given a scrollable
  * inner box so WKWebView materialises a child scroll view at the element's
- * dimensions — the native MapKit view is inserted into that subview. This is
+ * dimensions - the native MapKit view is inserted into that subview. This is
  * the same compositing trick `@capacitor/google-maps` uses.
  */
 class MapCustomElement extends HTMLElement {
