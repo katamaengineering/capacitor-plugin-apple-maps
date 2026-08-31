@@ -2,8 +2,11 @@
 
 [![npm version](https://img.shields.io/npm/v/capacitor-plugin-apple-maps.svg)](https://www.npmjs.com/package/capacitor-plugin-apple-maps)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+
 [![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 Renders a **native Apple Maps (MapKit)** view on iOS from a Capacitor app. The
@@ -58,9 +61,13 @@ const ids = await map.addMarkers([
 await map.enableClustering();
 ```
 
-Marker icons resolve from three sources: a **bundled web asset** filename
-(copied into the app bundle under `public/` - e.g. `marker-blue.png` from your
-web `static/`), an **`https:` URL**, or a **`data:` URI**. SVG is not supported.
+A marker with **no `iconUrl`** draws MapKit's native pin
+(`MKMarkerAnnotationView`), the same way `@capacitor/google-maps` falls back to a
+default marker - so a marker written against the shared API is always visible.
+Supply an `iconUrl` to use your own art, resolved from three sources: a **bundled
+web asset** filename (copied into the app bundle under `public/` - e.g.
+`marker-blue.png` from your web `static/`), an **`https:` URL**, or a **`data:`
+URI**. SVG is not supported.
 
 ### Sharing one abstraction with `@capacitor/google-maps`
 
@@ -69,9 +76,10 @@ The wrapper's method names and payload shapes (`LatLng`, `LatLngBounds`,
 so a host app can pick the provider per platform:
 
 ```ts
-const map = Capacitor.getPlatform() === 'ios'
-  ? await AppleMap.create({ id, element, config })
-  : await GoogleMap.create({ id, element, apiKey, config });
+const map =
+  Capacitor.getPlatform() === 'ios'
+    ? await AppleMap.create({ id, element, config })
+    : await GoogleMap.create({ id, element, apiKey, config });
 ```
 
 ## Notes & limitations
@@ -88,24 +96,24 @@ const map = Capacitor.getPlatform() === 'ios'
 
 <docgen-index>
 
-* [`create(...)`](#create)
-* [`destroy(...)`](#destroy)
-* [`setCamera(...)`](#setcamera)
-* [`getMapBounds(...)`](#getmapbounds)
-* [`addMarkers(...)`](#addmarkers)
-* [`removeMarkers(...)`](#removemarkers)
-* [`enableClustering(...)`](#enableclustering)
-* [`disableClustering(...)`](#disableclustering)
-* [`searchAutocomplete(...)`](#searchautocomplete)
-* [`searchPlaces(...)`](#searchplaces)
-* [`searchResolve(...)`](#searchresolve)
-* [`onResize(...)`](#onresize)
-* [`onDisplay(...)`](#ondisplay)
-* [`onScroll(...)`](#onscroll)
-* [`addListener('onCameraIdle', ...)`](#addlisteneroncameraidle-)
-* [`addListener('onMarkerClick', ...)`](#addlisteneronmarkerclick-)
-* [`addListener('onMapReady', ...)`](#addlisteneronmapready-)
-* [Interfaces](#interfaces)
+- [`create(...)`](#create)
+- [`destroy(...)`](#destroy)
+- [`setCamera(...)`](#setcamera)
+- [`getMapBounds(...)`](#getmapbounds)
+- [`addMarkers(...)`](#addmarkers)
+- [`removeMarkers(...)`](#removemarkers)
+- [`enableClustering(...)`](#enableclustering)
+- [`disableClustering(...)`](#disableclustering)
+- [`searchAutocomplete(...)`](#searchautocomplete)
+- [`searchPlaces(...)`](#searchplaces)
+- [`searchResolve(...)`](#searchresolve)
+- [`onResize(...)`](#onresize)
+- [`onDisplay(...)`](#ondisplay)
+- [`onScroll(...)`](#onscroll)
+- [`addListener('onCameraIdle', ...)`](#addlisteneroncameraidle-)
+- [`addListener('onMarkerClick', ...)`](#addlisteneronmarkerclick-)
+- [`addListener('onMapReady', ...)`](#addlisteneronmapready-)
+- [Interfaces](#interfaces)
 
 </docgen-index>
 
@@ -125,8 +133,7 @@ create(options: { id: string; config: AppleMapConfig; element?: unknown; forceCr
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | **`options`** | <code>{ id: string; config: <a href="#applemapconfig">AppleMapConfig</a>; element?: unknown; forceCreate?: boolean; }</code> |
 
---------------------
-
+---
 
 ### destroy(...)
 
@@ -138,8 +145,7 @@ destroy(options: { id: string; }) => Promise<void>
 | ------------- | ---------------------------- |
 | **`options`** | <code>{ id: string; }</code> |
 
---------------------
-
+---
 
 ### setCamera(...)
 
@@ -151,8 +157,7 @@ setCamera(options: { id: string; config: CameraConfig; }) => Promise<void>
 | ------------- | ------------------------------------------------------------------------------ |
 | **`options`** | <code>{ id: string; config: <a href="#cameraconfig">CameraConfig</a>; }</code> |
 
---------------------
-
+---
 
 ### getMapBounds(...)
 
@@ -166,8 +171,7 @@ getMapBounds(options: { id: string; }) => Promise<LatLngBounds>
 
 **Returns:** <code>Promise&lt;<a href="#latlngbounds">LatLngBounds</a>&gt;</code>
 
---------------------
-
+---
 
 ### addMarkers(...)
 
@@ -181,8 +185,7 @@ addMarkers(options: { id: string; markers: Marker[]; }) => Promise<{ ids: string
 
 **Returns:** <code>Promise&lt;{ ids: string[]; }&gt;</code>
 
---------------------
-
+---
 
 ### removeMarkers(...)
 
@@ -194,8 +197,7 @@ removeMarkers(options: { id: string; markerIds: string[]; }) => Promise<void>
 | ------------- | ------------------------------------------------- |
 | **`options`** | <code>{ id: string; markerIds: string[]; }</code> |
 
---------------------
-
+---
 
 ### enableClustering(...)
 
@@ -207,8 +209,7 @@ enableClustering(options: { id: string; }) => Promise<void>
 | ------------- | ---------------------------- |
 | **`options`** | <code>{ id: string; }</code> |
 
---------------------
-
+---
 
 ### disableClustering(...)
 
@@ -220,8 +221,7 @@ disableClustering(options: { id: string; }) => Promise<void>
 | ------------- | ---------------------------- |
 | **`options`** | <code>{ id: string; }</code> |
 
---------------------
-
+---
 
 ### searchAutocomplete(...)
 
@@ -239,8 +239,7 @@ carries an opaque `id`; pass it to {@link searchResolve} to get coordinates.
 
 **Returns:** <code>Promise&lt;{ results: SearchCompletion[]; }&gt;</code>
 
---------------------
-
+---
 
 ### searchPlaces(...)
 
@@ -259,8 +258,7 @@ the results carry coordinates up front. Pass `region` to scope/bias results,
 
 **Returns:** <code>Promise&lt;{ results: SearchResult[]; }&gt;</code>
 
---------------------
-
+---
 
 ### searchResolve(...)
 
@@ -277,8 +275,7 @@ Returns an empty object if the id is unknown or has no location.
 
 **Returns:** <code>Promise&lt;{ lat?: number; lng?: number; title?: string; }&gt;</code>
 
---------------------
-
+---
 
 ### onResize(...)
 
@@ -292,8 +289,7 @@ Keep the native frame in sync as the element resizes.
 | ------------- | --------------------------------------------------------------------------- |
 | **`options`** | <code>{ id: string; mapBounds: <a href="#mapbounds">MapBounds</a>; }</code> |
 
---------------------
-
+---
 
 ### onDisplay(...)
 
@@ -307,8 +303,7 @@ Re-mount the native view after the element becomes visible again.
 | ------------- | --------------------------------------------------------------------------- |
 | **`options`** | <code>{ id: string; mapBounds: <a href="#mapbounds">MapBounds</a>; }</code> |
 
---------------------
-
+---
 
 ### onScroll(...)
 
@@ -322,8 +317,7 @@ Keep the native frame in sync as the page scrolls (no-op on iOS).
 | ------------- | --------------------------------------------------------------------------- |
 | **`options`** | <code>{ id: string; mapBounds: <a href="#mapbounds">MapBounds</a>; }</code> |
 
---------------------
-
+---
 
 ### addListener('onCameraIdle', ...)
 
@@ -338,8 +332,7 @@ addListener(eventName: 'onCameraIdle', listenerFunc: (data: CameraIdleCallbackDa
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
---------------------
-
+---
 
 ### addListener('onMarkerClick', ...)
 
@@ -354,8 +347,7 @@ addListener(eventName: 'onMarkerClick', listenerFunc: (data: MarkerClickCallback
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
---------------------
-
+---
 
 ### addListener('onMapReady', ...)
 
@@ -370,11 +362,9 @@ addListener(eventName: 'onMapReady', listenerFunc: (data: MapReadyCallbackData) 
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
---------------------
-
+---
 
 ### Interfaces
-
 
 #### AppleMapConfig
 
@@ -394,7 +384,6 @@ bounding rectangle - callers do not set them.
 | **`y`**                | <code>number</code>                       |                                                                                        |
 | **`devicePixelRatio`** | <code>number</code>                       |                                                                                        |
 
-
 #### LatLng
 
 A geographic coordinate. Field names match `@capacitor/google-maps` so the
@@ -405,7 +394,6 @@ two plugins can sit behind one abstraction in the host app.
 | **`lat`** | <code>number</code> |
 | **`lng`** | <code>number</code> |
 
-
 #### CameraConfig
 
 | Prop             | Type                                      | Description                                                                        |
@@ -413,7 +401,6 @@ two plugins can sit behind one abstraction in the host app.
 | **`coordinate`** | <code><a href="#latlng">LatLng</a></code> |                                                                                    |
 | **`zoom`**       | <code>number</code>                       |                                                                                    |
 | **`animate`**    | <code>boolean</code>                      | Animate the camera move. Defaults to `false` to match the host app's expectations. |
-
 
 #### LatLngBounds
 
@@ -425,16 +412,14 @@ Visible-region bounds, mirroring the `@capacitor/google-maps` shape.
 | **`center`**    | <code><a href="#latlng">LatLng</a></code> |
 | **`northeast`** | <code><a href="#latlng">LatLng</a></code> |
 
-
 #### Marker
 
-| Prop             | Type                                            | Description                                                                                                                                  |
-| ---------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |                                                                                                                                              |
-| **`title`**      | <code>string</code>                             |                                                                                                                                              |
-| **`iconUrl`**    | <code>string</code>                             | Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`), an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. |
-| **`iconSize`**   | <code>{ width: number; height: number; }</code> | Logical size in points.                                                                                                                      |
-
+| Prop             | Type                                            | Description                                                                                                                                                                              |
+| ---------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |                                                                                                                                                                                          |
+| **`title`**      | <code>string</code>                             |                                                                                                                                                                                          |
+| **`iconUrl`**    | <code>string</code>                             | Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`), an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. Omit it to get MapKit's native default pin. |
+| **`iconSize`**   | <code>{ width: number; height: number; }</code> | Logical size in points.                                                                                                                                                                  |
 
 #### SearchCompletion
 
@@ -445,7 +430,6 @@ One type-ahead suggestion from `searchAutocomplete`.
 | **`id`**       | <code>string</code> | Opaque id to pass to `searchResolve`.              |
 | **`title`**    | <code>string</code> | Primary line, e.g. a street address or place name. |
 | **`subtitle`** | <code>string</code> | Secondary line, e.g. the city/region.              |
-
 
 #### SearchRegion
 
@@ -459,7 +443,6 @@ favour the area in view. Deltas default to 1° if omitted.
 | **`latitudeDelta`**  | <code>number</code> |
 | **`longitudeDelta`** | <code>number</code> |
 
-
 #### SearchResult
 
 One coordinate-bearing result from `searchPlaces`.
@@ -472,7 +455,6 @@ One coordinate-bearing result from `searchPlaces`.
 | **`latitude`**  | <code>number</code> |                                                                         |
 | **`longitude`** | <code>number</code> |                                                                         |
 
-
 #### MapBounds
 
 The rectangle the native map should occupy, in CSS pixels.
@@ -484,13 +466,11 @@ The rectangle the native map should occupy, in CSS pixels.
 | **`width`**  | <code>number</code> |
 | **`height`** | <code>number</code> |
 
-
 #### PluginListenerHandle
 
 | Prop         | Type                                      |
 | ------------ | ----------------------------------------- |
 | **`remove`** | <code>() =&gt; Promise&lt;void&gt;</code> |
-
 
 #### CameraIdleCallbackData
 
@@ -502,7 +482,6 @@ The rectangle the native map should occupy, in CSS pixels.
 | **`zoom`**      | <code>number</code>                                   |
 | **`bounds`**    | <code><a href="#latlngbounds">LatLngBounds</a></code> |
 
-
 #### MarkerClickCallbackData
 
 | Prop            | Type                |
@@ -512,7 +491,6 @@ The rectangle the native map should occupy, in CSS pixels.
 | **`latitude`**  | <code>number</code> |
 | **`longitude`** | <code>number</code> |
 | **`title`**     | <code>string</code> |
-
 
 #### MapReadyCallbackData
 

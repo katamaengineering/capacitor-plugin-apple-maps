@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2]
+
+### Fixed
+
+- Markers with no `iconUrl` are now drawn with MapKit's native pin
+  (`MKMarkerAnnotationView`) instead of a bare, image-less `MKAnnotationView`,
+  which rendered nothing. This restores parity with `@capacitor/google-maps`,
+  whose markers fall back to a default pin - a marker created against the shared
+  API is now visible on iOS instead of silently invisible. Icon and no-icon
+  markers use separate reuse identifiers (their view classes differ), and a
+  recycled image view is cleared before reuse so it cannot flash a previous
+  marker's icon while an `https:` icon is still downloading.
+
 ## [0.3.1]
 
 ### Fixed

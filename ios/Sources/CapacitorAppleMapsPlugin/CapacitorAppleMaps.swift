@@ -332,7 +332,9 @@ public class Map: NSObject {
 
     func rebindTargetContainer(mapBounds: CGRect) {
         DispatchQueue.main.sync {
-            guard let target = self.getTargetContainer(refWidth: round(Double(mapBounds.width)), refHeight: round(Double(mapBounds.height))) else { return }
+            let refWidth = round(Double(mapBounds.width))
+            let refHeight = round(Double(mapBounds.height))
+            guard let target = self.getTargetContainer(refWidth: refWidth, refHeight: refHeight) else { return }
             self.targetView = target
             target.tag = Map.mapTag
             target.removeAllSubview()
@@ -385,8 +387,8 @@ public class Map: NSObject {
             guard let scrollView = item as? UIScrollView else { continue }
             let childScrollClass = NSClassFromString("WKChildScrollView")
             let scrollClass = NSClassFromString("WKScrollView")
-            let isChildScroll = (childScrollClass != nil && item.isKind(of: childScrollClass!))
-                || (scrollClass != nil && item.isKind(of: scrollClass!))
+            let isChildScroll = (childScrollClass.map { item.isKind(of: $0) } ?? false)
+                || (scrollClass.map { item.isKind(of: $0) } ?? false)
             let isBridgeScroll = item.isEqual(webView.scrollView)
             if isChildScroll && !isBridgeScroll {
                 scrollView.isScrollEnabled = true

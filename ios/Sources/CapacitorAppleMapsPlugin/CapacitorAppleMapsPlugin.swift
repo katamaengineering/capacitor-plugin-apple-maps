@@ -29,7 +29,11 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
     ]
 
     private let clusterReuseId = "appleMapCluster"
+    // Markers with an icon and markers without one use different view classes
+    // (MKAnnotationView vs MKMarkerAnnotationView) and so must not share a reuse
+    // identifier — MapKit would hand back the wrong class from the reuse pool.
     private let markerReuseId = "appleMapMarker"
+    private let markerDefaultReuseId = "appleMapMarkerDefault"
 
     private var maps = [String: Map]()
     private let searchService = SearchService()
@@ -266,14 +270,30 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
 
         guard let marker = annotation as? AppleMapMarker, let map = findMap(for: mapView) else { return nil }
 
-        let view = mapView.dequeueReusableAnnotationView(withIdentifier: markerReuseId)
-            ?? MKAnnotationView(annotation: marker, reuseIdentifier: markerReuseId)
+        // No icon → MapKit's native pin (MKMarkerAnnotationView), mirroring how
+        // @capacitor/google-maps renders a default marker when the host supplies
+        // none; a bare image-less MKAnnotationView would be invisible. The two
+        // view classes can't share a reuse id.
+        let hasIcon = !(marker.iconUrl?.isEmpty ?? true)
+        let view: MKAnnotationView
+        if hasIcon {
+            view = mapView.dequeueReusableAnnotationView(withIdentifier: markerReuseId)
+                ?? MKAnnotationView(annotation: marker, reuseIdentifier: markerReuseId)
+        } else {
+            view = mapView.dequeueReusableAnnotationView(withIdentifier: markerDefaultReuseId) as? MKMarkerAnnotationView
+                ?? MKMarkerAnnotationView(annotation: marker, reuseIdentifier: markerDefaultReuseId)
+        }
         view.annotation = marker
         view.canShowCallout = false
         view.clusteringIdentifier = map.clusteringEnabled ? clusterReuseId : nil
         view.displayPriority = .required
 
-        if let image = map.annotationImage(for: marker, in: mapView) {
+        // Reset first: a recycled image view must not keep a previous marker's
+        // icon while an `https:` icon for this one is still downloading (the
+        // async completion in `annotationImage` sets it on the live view).
+        view.image = nil
+        view.centerOffset = .zero
+        if hasIcon, let image = map.annotationImage(for: marker, in: mapView) {
             view.image = image
             view.centerOffset = CGPoint(x: 0, y: -image.size.height / 2)
         }
