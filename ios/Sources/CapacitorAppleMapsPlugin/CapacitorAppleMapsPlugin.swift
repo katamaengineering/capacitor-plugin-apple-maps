@@ -19,6 +19,8 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         CAPPluginMethod(name: "removeMarkers", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "enableClustering", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "disableClustering", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "searchAutocomplete", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "searchResolve", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "onResize", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "onDisplay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "onScroll", returnType: CAPPluginReturnPromise)
@@ -28,6 +30,7 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
     private let markerReuseId = "appleMapMarker"
 
     private var maps = [String: Map]()
+    private let searchService = SearchService()
 
     // MARK: - Lifecycle
 
@@ -149,6 +152,16 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         }
         map.disableClustering()
         call.resolve()
+    }
+
+    // MARK: - Search
+
+    @objc func searchAutocomplete(_ call: CAPPluginCall) {
+        searchService.autocomplete(call)
+    }
+
+    @objc func searchResolve(_ call: CAPPluginCall) {
+        searchService.resolve(call)
     }
 
     // MARK: - Frame syncing

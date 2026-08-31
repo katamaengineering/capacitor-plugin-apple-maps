@@ -90,6 +90,8 @@ const map = Capacitor.getPlatform() === 'ios'
 * [`removeMarkers(...)`](#removemarkers)
 * [`enableClustering(...)`](#enableclustering)
 * [`disableClustering(...)`](#disableclustering)
+* [`searchAutocomplete(...)`](#searchautocomplete)
+* [`searchResolve(...)`](#searchresolve)
 * [`onResize(...)`](#onresize)
 * [`onDisplay(...)`](#ondisplay)
 * [`onScroll(...)`](#onscroll)
@@ -210,6 +212,43 @@ disableClustering(options: { id: string; }) => Promise<void>
 | Param         | Type                         |
 | ------------- | ---------------------------- |
 | **`options`** | <code>{ id: string; }</code> |
+
+--------------------
+
+
+### searchAutocomplete(...)
+
+```typescript
+searchAutocomplete(options: { query: string; }) => Promise<{ results: SearchCompletion[]; }>
+```
+
+Native place autocomplete via `MKLocalSearchCompleter`. Needs no API key.
+Each result carries an opaque `id`; pass it to {@link searchResolve} to get
+coordinates.
+
+| Param         | Type                            |
+| ------------- | ------------------------------- |
+| **`options`** | <code>{ query: string; }</code> |
+
+**Returns:** <code>Promise&lt;{ results: SearchCompletion[]; }&gt;</code>
+
+--------------------
+
+
+### searchResolve(...)
+
+```typescript
+searchResolve(options: { id: string; }) => Promise<{ lat?: number; lng?: number; title?: string; }>
+```
+
+Resolve an autocomplete result `id` to coordinates via `MKLocalSearch`.
+Returns an empty object if the id is unknown or has no location.
+
+| Param         | Type                         |
+| ------------- | ---------------------------- |
+| **`options`** | <code>{ id: string; }</code> |
+
+**Returns:** <code>Promise&lt;{ lat?: number; lng?: number; title?: string; }&gt;</code>
 
 --------------------
 
@@ -368,6 +407,17 @@ Visible-region bounds, mirroring the `@capacitor/google-maps` shape.
 | **`title`**      | <code>string</code>                             |                                                                                                                                              |
 | **`iconUrl`**    | <code>string</code>                             | Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`), an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. |
 | **`iconSize`**   | <code>{ width: number; height: number; }</code> | Logical size in points.                                                                                                                      |
+
+
+#### SearchCompletion
+
+One native autocomplete suggestion.
+
+| Prop           | Type                | Description                                        |
+| -------------- | ------------------- | -------------------------------------------------- |
+| **`id`**       | <code>string</code> | Opaque id to pass to `searchResolve`.              |
+| **`title`**    | <code>string</code> | Primary line, e.g. a street address or place name. |
+| **`subtitle`** | <code>string</code> | Secondary line, e.g. the city/region.              |
 
 
 #### MapBounds

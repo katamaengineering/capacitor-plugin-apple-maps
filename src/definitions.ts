@@ -83,6 +83,16 @@ export interface MapReadyCallbackData {
   mapId: string;
 }
 
+/** One native autocomplete suggestion. */
+export interface SearchCompletion {
+  /** Opaque id to pass to `searchResolve`. */
+  id: string;
+  /** Primary line, e.g. a street address or place name. */
+  title: string;
+  /** Secondary line, e.g. the city/region. */
+  subtitle: string;
+}
+
 /**
  * Low-level bridge to the native MapKit implementation. Most callers should use
  * the {@link AppleMap} wrapper instead of these methods directly.
@@ -96,6 +106,19 @@ export interface CapacitorAppleMapsPlugin {
   removeMarkers(options: { id: string; markerIds: string[] }): Promise<void>;
   enableClustering(options: { id: string }): Promise<void>;
   disableClustering(options: { id: string }): Promise<void>;
+
+  /**
+   * Native place autocomplete via `MKLocalSearchCompleter`. Needs no API key.
+   * Each result carries an opaque `id`; pass it to {@link searchResolve} to get
+   * coordinates.
+   */
+  searchAutocomplete(options: { query: string }): Promise<{ results: SearchCompletion[] }>;
+  /**
+   * Resolve an autocomplete result `id` to coordinates via `MKLocalSearch`.
+   * Returns an empty object if the id is unknown or has no location.
+   */
+  searchResolve(options: { id: string }): Promise<{ lat?: number; lng?: number; title?: string }>;
+
   /** Keep the native frame in sync as the element resizes. */
   onResize(options: { id: string; mapBounds: MapBounds }): Promise<void>;
   /** Re-mount the native view after the element becomes visible again. */

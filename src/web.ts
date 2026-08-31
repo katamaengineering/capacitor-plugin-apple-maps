@@ -44,6 +44,14 @@ export class CapacitorAppleMapsWeb extends WebPlugin implements CapacitorAppleMa
     this.notAvailable();
   }
 
+  async searchAutocomplete(): Promise<{ results: never[] }> {
+    this.notAvailable();
+  }
+
+  async searchResolve(): Promise<{ lat?: number; lng?: number; title?: string }> {
+    this.notAvailable();
+  }
+
   async onResize(): Promise<void> {
     this.notAvailable();
   }
