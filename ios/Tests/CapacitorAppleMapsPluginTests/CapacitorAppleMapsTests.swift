@@ -95,4 +95,24 @@ class CapacitorAppleMapsTests: XCTestCase {
         let rect = CGRect.fromJSObject([:])
         XCTAssertEqual(rect, .zero)
     }
+
+    // MARK: - Search distance filter
+
+    func testWithinDistanceNoFilterWhenLimitMissing() {
+        let boston = CLLocation(latitude: 42.36, longitude: -71.06)
+        let saoPaulo = CLLocationCoordinate2D(latitude: -23.55, longitude: -46.63)
+        // No/zero limit means "keep everything".
+        XCTAssertTrue(withinDistance(maxKm: nil, from: boston, to: saoPaulo))
+        XCTAssertTrue(withinDistance(maxKm: 0, from: boston, to: saoPaulo))
+        // No center means "keep everything".
+        XCTAssertTrue(withinDistance(maxKm: 800, from: nil, to: saoPaulo))
+    }
+
+    func testWithinDistanceKeepsNearbyDropsFar() {
+        let boston = CLLocation(latitude: 42.36, longitude: -71.06)
+        let portland = CLLocationCoordinate2D(latitude: 43.66, longitude: -70.26) // ~150 km
+        let saoPaulo = CLLocationCoordinate2D(latitude: -23.55, longitude: -46.63) // ~7000 km
+        XCTAssertTrue(withinDistance(maxKm: 800, from: boston, to: portland))
+        XCTAssertFalse(withinDistance(maxKm: 800, from: boston, to: saoPaulo))
+    }
 }

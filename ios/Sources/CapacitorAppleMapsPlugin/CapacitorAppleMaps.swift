@@ -39,7 +39,7 @@ func longitudeDeltaToZoom(_ delta: Double, widthPoints: Double) -> Double {
 /// The corner coordinates of a region, used to report the visible bounds to JS.
 /// Pure function so it can be unit-tested without an `MKMapView`.
 func regionCorners(center: CLLocationCoordinate2D, span: MKCoordinateSpan)
-    -> (southwest: CLLocationCoordinate2D, northeast: CLLocationCoordinate2D) {
+-> (southwest: CLLocationCoordinate2D, northeast: CLLocationCoordinate2D) {
     let southwest = CLLocationCoordinate2D(
         latitude: center.latitude - span.latitudeDelta / 2,
         longitude: center.longitude - span.longitudeDelta / 2

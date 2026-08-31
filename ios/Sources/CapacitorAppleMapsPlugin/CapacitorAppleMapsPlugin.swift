@@ -20,6 +20,7 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         CAPPluginMethod(name: "enableClustering", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "disableClustering", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchAutocomplete", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "searchPlaces", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchResolve", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "onResize", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "onDisplay", returnType: CAPPluginReturnPromise),
@@ -158,6 +159,10 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
 
     @objc func searchAutocomplete(_ call: CAPPluginCall) {
         searchService.autocomplete(call)
+    }
+
+    @objc func searchPlaces(_ call: CAPPluginCall) {
+        searchService.places(call)
     }
 
     @objc func searchResolve(_ call: CAPPluginCall) {

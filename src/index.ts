@@ -1,4 +1,4 @@
-import type { SearchCompletion, SearchRegion } from './definitions';
+import type { SearchCompletion, SearchRegion, SearchResult } from './definitions';
 import { CapacitorAppleMaps } from './implementation';
 
 export * from './definitions';
@@ -17,7 +17,20 @@ export function searchAutocomplete(options: {
   return CapacitorAppleMaps.searchAutocomplete(options);
 }
 
-/** Resolve an autocomplete result id to coordinates (iOS, `MKLocalSearch`). */
+/**
+ * One-shot native place search (iOS, `MKLocalSearch`). Results carry
+ * coordinates; supports region scoping, a distance filter, and a result limit.
+ */
+export function searchPlaces(options: {
+  query: string;
+  region?: SearchRegion;
+  maxDistanceKm?: number;
+  limit?: number;
+}): Promise<{ results: SearchResult[] }> {
+  return CapacitorAppleMaps.searchPlaces(options);
+}
+
+/** Resolve a suggestion id (from either search method) to coordinates (iOS). */
 export function searchResolve(options: { id: string }): Promise<{ lat?: number; lng?: number; title?: string }> {
   return CapacitorAppleMaps.searchResolve(options);
 }

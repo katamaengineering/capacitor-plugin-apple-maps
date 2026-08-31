@@ -20,6 +20,9 @@ DerivedData/
 # macOS files
 .DS_Store
 
+# Local working notes
+COMMUNITY_SUBMISSION.md
+
 
 
 # Based on Android gitignore template: https://github.com/github/gitignore/blob/HEAD/Android.gitignore

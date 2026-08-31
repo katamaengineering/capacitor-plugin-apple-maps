@@ -1,5 +1,11 @@
 # capacitor-plugin-apple-maps
 
+[![npm version](https://img.shields.io/npm/v/capacitor-plugin-apple-maps.svg)](https://www.npmjs.com/package/capacitor-plugin-apple-maps)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
+
 Renders a **native Apple Maps (MapKit)** view on iOS from a Capacitor app. The
 `AppleMap` wrapper class deliberately mirrors the subset of
 [`@capacitor/google-maps`](https://github.com/ionic-team/capacitor-plugins/tree/main/google-maps)'
@@ -91,6 +97,7 @@ const map = Capacitor.getPlatform() === 'ios'
 * [`enableClustering(...)`](#enableclustering)
 * [`disableClustering(...)`](#disableclustering)
 * [`searchAutocomplete(...)`](#searchautocomplete)
+* [`searchPlaces(...)`](#searchplaces)
 * [`searchResolve(...)`](#searchresolve)
 * [`onResize(...)`](#onresize)
 * [`onDisplay(...)`](#ondisplay)
@@ -222,9 +229,9 @@ disableClustering(options: { id: string; }) => Promise<void>
 searchAutocomplete(options: { query: string; region?: SearchRegion; }) => Promise<{ results: SearchCompletion[]; }>
 ```
 
-Native place autocomplete via `MKLocalSearchCompleter`. Needs no API key.
-Each result carries an opaque `id`; pass it to {@link searchResolve} to get
-coordinates.
+Type-ahead place autocomplete via `MKLocalSearchCompleter`. Needs no API
+key. Pass `region` to bias suggestions toward the area in view. Each result
+carries an opaque `id`; pass it to {@link searchResolve} to get coordinates.
 
 | Param         | Type                                                                               |
 | ------------- | ---------------------------------------------------------------------------------- |
@@ -235,13 +242,33 @@ coordinates.
 --------------------
 
 
+### searchPlaces(...)
+
+```typescript
+searchPlaces(options: { query: string; region?: SearchRegion; maxDistanceKm?: number; limit?: number; }) => Promise<{ results: SearchResult[]; }>
+```
+
+One-shot place search via `MKLocalSearch`. Unlike {@link searchAutocomplete}
+the results carry coordinates up front. Pass `region` to scope/bias results,
+`maxDistanceKm` to drop results farther than that from the region center
+(e.g. a US ZIP that also exists abroad), and `limit` to cap the count.
+
+| Param         | Type                                                                                                                       |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **`options`** | <code>{ query: string; region?: <a href="#searchregion">SearchRegion</a>; maxDistanceKm?: number; limit?: number; }</code> |
+
+**Returns:** <code>Promise&lt;{ results: SearchResult[]; }&gt;</code>
+
+--------------------
+
+
 ### searchResolve(...)
 
 ```typescript
 searchResolve(options: { id: string; }) => Promise<{ lat?: number; lng?: number; title?: string; }>
 ```
 
-Resolve an autocomplete result `id` to coordinates via `MKLocalSearch`.
+Resolve a suggestion `id` (from either search method) to coordinates.
 Returns an empty object if the id is unknown or has no location.
 
 | Param         | Type                         |
@@ -411,7 +438,7 @@ Visible-region bounds, mirroring the `@capacitor/google-maps` shape.
 
 #### SearchCompletion
 
-One native autocomplete suggestion.
+One type-ahead suggestion from `searchAutocomplete`.
 
 | Prop           | Type                | Description                                        |
 | -------------- | ------------------- | -------------------------------------------------- |
@@ -431,6 +458,19 @@ favour the area in view. Deltas default to 1° if omitted.
 | **`longitude`**      | <code>number</code> |
 | **`latitudeDelta`**  | <code>number</code> |
 | **`longitudeDelta`** | <code>number</code> |
+
+
+#### SearchResult
+
+One coordinate-bearing result from `searchPlaces`.
+
+| Prop            | Type                | Description                                                             |
+| --------------- | ------------------- | ----------------------------------------------------------------------- |
+| **`id`**        | <code>string</code> | Opaque id to pass to `searchResolve` (or use the coordinates directly). |
+| **`title`**     | <code>string</code> |                                                                         |
+| **`subtitle`**  | <code>string</code> |                                                                         |
+| **`latitude`**  | <code>number</code> |                                                                         |
+| **`longitude`** | <code>number</code> |                                                                         |
 
 
 #### MapBounds
@@ -481,3 +521,34 @@ The rectangle the native map should occupy, in CSS pixels.
 | **`mapId`** | <code>string</code> |
 
 </docgen-api>
+
+## Maintainers
+
+| Maintainer    | GitHub                                    | Active |
+| ------------- | ----------------------------------------- | ------ |
+| Patrick Joyce | [pjaudiomv](https://github.com/pjaudiomv) | yes    |
+
+## Contributors
+
+Thanks goes to these wonderful people
+([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/pjaudiomv"><img src="https://avatars.githubusercontent.com/u/pjaudiomv?s=100" width="100px;" alt="Patrick Joyce"/><br /><sub><b>Patrick Joyce</b></sub></a><br /><a href="https://github.com/pjaudiomv/capacitor-plugin-apple-maps/commits?author=pjaudiomv" title="Code">💻</a> <a href="https://github.com/pjaudiomv/capacitor-plugin-apple-maps/commits?author=pjaudiomv" title="Documentation">📖</a> <a href="#maintenance-pjaudiomv" title="Maintenance">🚧</a> <a href="https://github.com/pjaudiomv/capacitor-plugin-apple-maps/commits?author=pjaudiomv" title="Tests">⚠️</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the
+[all-contributors](https://github.com/all-contributors/all-contributors)
+specification. Contributions of any kind are welcome!

@@ -1,0 +1,21 @@
+{
+  "projectName": "capacitor-plugin-apple-maps",
+  "projectOwner": "pjaudiomv",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": ["README.md"],
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "angular",
+  "contributorsPerLine": 7,
+  "contributorsSortAlphabetically": false,
+  "contributors": [
+    {
+      "login": "pjaudiomv",
+      "name": "Patrick Joyce",
+      "avatar_url": "https://avatars.githubusercontent.com/u/pjaudiomv",
+      "profile": "https://github.com/pjaudiomv",
+      "contributions": ["code", "doc", "maintenance", "test"]
+    }
+  ]
+}

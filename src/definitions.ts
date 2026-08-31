@@ -83,7 +83,7 @@ export interface MapReadyCallbackData {
   mapId: string;
 }
 
-/** One native autocomplete suggestion. */
+/** One type-ahead suggestion from `searchAutocomplete`. */
 export interface SearchCompletion {
   /** Opaque id to pass to `searchResolve`. */
   id: string;
@@ -91,6 +91,16 @@ export interface SearchCompletion {
   title: string;
   /** Secondary line, e.g. the city/region. */
   subtitle: string;
+}
+
+/** One coordinate-bearing result from `searchPlaces`. */
+export interface SearchResult {
+  /** Opaque id to pass to `searchResolve` (or use the coordinates directly). */
+  id: string;
+  title: string;
+  subtitle: string;
+  latitude: number;
+  longitude: number;
 }
 
 /**
@@ -119,13 +129,25 @@ export interface CapacitorAppleMapsPlugin {
   disableClustering(options: { id: string }): Promise<void>;
 
   /**
-   * Native place autocomplete via `MKLocalSearchCompleter`. Needs no API key.
-   * Each result carries an opaque `id`; pass it to {@link searchResolve} to get
-   * coordinates.
+   * Type-ahead place autocomplete via `MKLocalSearchCompleter`. Needs no API
+   * key. Pass `region` to bias suggestions toward the area in view. Each result
+   * carries an opaque `id`; pass it to {@link searchResolve} to get coordinates.
    */
   searchAutocomplete(options: { query: string; region?: SearchRegion }): Promise<{ results: SearchCompletion[] }>;
   /**
-   * Resolve an autocomplete result `id` to coordinates via `MKLocalSearch`.
+   * One-shot place search via `MKLocalSearch`. Unlike {@link searchAutocomplete}
+   * the results carry coordinates up front. Pass `region` to scope/bias results,
+   * `maxDistanceKm` to drop results farther than that from the region center
+   * (e.g. a US ZIP that also exists abroad), and `limit` to cap the count.
+   */
+  searchPlaces(options: {
+    query: string;
+    region?: SearchRegion;
+    maxDistanceKm?: number;
+    limit?: number;
+  }): Promise<{ results: SearchResult[] }>;
+  /**
+   * Resolve a suggestion `id` (from either search method) to coordinates.
    * Returns an empty object if the id is unknown or has no location.
    */
   searchResolve(options: { id: string }): Promise<{ lat?: number; lng?: number; title?: string }>;

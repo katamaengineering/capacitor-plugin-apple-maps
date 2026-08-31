@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0]
+
+### Added
+
+- `searchPlaces`: a one-shot `MKLocalSearch` returning coordinate-bearing
+  results (`SearchResult`), with optional region scoping, a `maxDistanceKm`
+  distance filter (drop far-away same-named places), and a result `limit`.
+- `searchResolve` now resolves ids from either `searchAutocomplete` or
+  `searchPlaces`.
+
+`searchAutocomplete` is unchanged - it remains idiomatic `MKLocalSearchCompleter`
+type-ahead. Use `searchPlaces` when you need coordinates up front or filtering.
+
 ## [0.2.0]
 
 ### Added
