@@ -7,11 +7,11 @@
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 Renders a **native Apple Maps (MapKit)** view on iOS from a Capacitor app. The
-`AppleMap` wrapper class deliberately mirrors the subset of
+`AppleMap` wrapper class deliberately mirrors the core subset of
 [`@capacitor/google-maps`](https://github.com/ionic-team/capacitor-plugins/tree/main/google-maps)'
-`GoogleMap` API that a meeting/venue finder needs - create, camera, markers,
-clustering, and camera-idle / marker-click events - so an app can route **iOS to
-Apple Maps and Android/web to Google Maps** behind one thin abstraction.
+`GoogleMap` API - create, camera, markers, clustering, and camera-idle /
+marker-click events - so an app can route **iOS to Apple Maps and Android/web to
+Google Maps** behind one thin abstraction.
 
 - **iOS only.** MapKit is a native iOS framework and needs no API key. On web
   and Android every method rejects with `unavailable` - the host app is expected
