@@ -71,6 +71,7 @@ struct AppleMapConfig {
     let y: Double
     let width: Double
     let height: Double
+    let clustering: Bool
 
     init(fromJSObject obj: JSObject) throws {
         guard let centerObj = obj["center"] as? JSObject,
@@ -86,6 +87,7 @@ struct AppleMapConfig {
         self.height = obj["height"] as? Double ?? 0
         self.x = obj["x"] as? Double ?? 0
         self.y = obj["y"] as? Double ?? 0
+        self.clustering = obj["clustering"] as? Bool ?? false
     }
 }
 
@@ -118,6 +120,9 @@ public class Map: NSObject {
         self.mapView = MKMapView()
         self.delegate = delegate
         super.init()
+        // Start clustered when the caller asked for it, so markers added later
+        // cluster on their first render instead of flashing as individual pins.
+        self.clusteringEnabled = config.clustering
         self.render()
     }
 

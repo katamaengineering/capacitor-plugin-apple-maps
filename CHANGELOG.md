@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4]
+
+### Added
+
+- `create` accepts a `clustering` flag on its config. When `true`, the map starts
+  with clustering enabled, so markers added afterwards cluster on their first
+  render instead of briefly flashing as individual pins before a later
+  `enableClustering` call collapses them. Equivalent to calling
+  `enableClustering` before the first `addMarkers`, without the flash.
+
 ## [0.3.3]
 
 ### Fixed

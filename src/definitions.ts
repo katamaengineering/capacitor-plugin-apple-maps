@@ -21,6 +21,13 @@ export interface AppleMapConfig {
   /** Hard zoom-out floor. Programmatic and gesture moves are clamped to this. */
   minZoom?: number;
   maxZoom?: number;
+  /**
+   * Start with clustering enabled, so markers added later cluster on their first
+   * render instead of briefly appearing as individual pins. Equivalent to
+   * calling {@link AppleMap.enableClustering} before any {@link AppleMap.addMarkers},
+   * but without the flash. Defaults to `false`.
+   */
+  clustering?: boolean;
   // --- Populated by the wrapper, not by callers. ---
   width?: number;
   height?: number;
