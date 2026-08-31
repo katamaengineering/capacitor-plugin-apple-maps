@@ -345,6 +345,37 @@ public class Map: NSObject {
         }
     }
 
+    /// Re-mount the map into its current webview container using the map's own
+    /// size. Called when the app returns to the foreground, after WebKit may
+    /// have rebuilt the scroll-view hierarchy and detached the native map's
+    /// touch handling. Keeps the existing mount if a container can't be found.
+    func remountIntoContainer() {
+        DispatchQueue.main.async {
+            let width = round(Double(self.mapView.bounds.width))
+            let height = round(Double(self.mapView.bounds.height))
+            guard width > 0, height > 0 else { return }
+
+            // Clear the previous tag so getTargetContainer rediscovers from a
+            // clean slate (its default reference tag is Map.mapTag).
+            let previous = self.targetView
+            previous?.tag = 0
+            self.targetView = nil
+
+            guard let target = self.getTargetContainer(refWidth: width, refHeight: height) else {
+                // Couldn't rediscover a container; restore the previous mount.
+                previous?.tag = Map.mapTag
+                self.targetView = previous
+                return
+            }
+
+            self.targetView = target
+            target.tag = Map.mapTag
+            target.removeAllSubview()
+            self.mapView.frame = target.bounds
+            target.addSubview(self.mapView)
+        }
+    }
+
     /// Finds the WKWebView child scroll view whose content size matches the bound
     /// element, so the native map can be mounted into it. Ported from
     /// `@capacitor/google-maps`. Must be called on the main thread.

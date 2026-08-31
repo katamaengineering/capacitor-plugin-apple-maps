@@ -1,6 +1,7 @@
 import Foundation
 import Capacitor
 import MapKit
+import UIKit
 
 /**
  * Bridges the JS API to native MapKit and relays map events back to JS.
@@ -32,6 +33,26 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
 
     private var maps = [String: Map]()
     private let searchService = SearchService()
+
+    // MARK: - App lifecycle
+
+    override public func load() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+    }
+
+    /// After the app returns to the foreground WebKit can rebuild its scroll-view
+    /// hierarchy, orphaning the native map's touch handling (it still renders but
+    /// gestures stop working). Re-mount each map into its current container.
+    @objc private func handleDidBecomeActive() {
+        for (_, map) in maps {
+            map.remountIntoContainer()
+        }
+    }
 
     // MARK: - Lifecycle
 
