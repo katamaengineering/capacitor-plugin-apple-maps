@@ -247,7 +247,10 @@ export class AppleMap {
   }
 
   async removeMarkers(ids: string[]): Promise<void> {
-    return CapacitorAppleMaps.removeMarkers({ id: this.id, markerIds: ids });
+    // Spread to a plain array: a reactive-framework proxy array (Svelte `$state`,
+    // a Vue ref, etc.) does not survive Capacitor's bridge serialization as an
+    // array, and the native side would see no ids.
+    return CapacitorAppleMaps.removeMarkers({ id: this.id, markerIds: [...ids] });
   }
 
   async enableClustering(): Promise<void> {
@@ -275,7 +278,9 @@ export class AppleMap {
 
   /** Remove overlays (polylines, polygons, or circles) by the ids their add call returned. */
   async removeOverlays(ids: string[]): Promise<void> {
-    return CapacitorAppleMaps.removeOverlays({ id: this.id, ids });
+    // Spread to a plain array — see the note in removeMarkers: a reactive proxy
+    // array does not serialize across the bridge as an array.
+    return CapacitorAppleMaps.removeOverlays({ id: this.id, ids: [...ids] });
   }
 
   async setMapType(mapType: MapType): Promise<void> {

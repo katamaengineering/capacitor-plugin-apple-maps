@@ -146,6 +146,26 @@ class CapacitorAppleMapsTests: XCTestCase {
         XCTAssertEqual(alpha, 0.5, accuracy: 1e-6)
     }
 
+    // MARK: - CAPPluginCall string-array reading (diagnostic)
+
+    /// Reproduces exactly how the bridge builds a call's options, to determine
+    /// whether `getArray` can read a JS string array (as removeMarkers /
+    /// removeOverlays need).
+    func testGetArrayReadsStringArrayFromCoercedOptions() {
+        let options = JSTypes.coerceDictionaryToJSObject(["id": "map", "ids": ["a", "b", "c"]]) ?? [:]
+        guard let call = CAPPluginCall(
+            callbackId: "t", methodName: "removeOverlays",
+            options: options, success: { _, _ in }, error: { _ in }
+        ) else {
+            XCTFail("could not construct CAPPluginCall")
+            return
+        }
+        let raw = call.getArray("ids")
+        XCTAssertNotNil(raw, "getArray returned nil for a string array")
+        XCTAssertEqual(raw?.compactMap { $0 as? String }, ["a", "b", "c"])
+        XCTAssertNotNil(call.getArray("ids") as? [String], "whole-array cast returned nil")
+    }
+
     // MARK: - Region corners (visible bounds math)
 
     func testRegionCorners() {

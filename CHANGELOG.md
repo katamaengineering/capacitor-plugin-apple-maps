@@ -50,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Marker icon cache no longer grows without bound.** The per-map icon cache is
   now an `NSCache` (capped, and evicted under memory pressure) instead of a
   dictionary that retained every distinct icon for the life of the map.
+- **`removeMarkers` / `removeOverlays` now accept id arrays held in reactive
+  state.** A reactive-framework proxy array (Svelte `$state`, a Vue ref, …) does
+  not survive Capacitor's bridge serialization as an array, so the native side
+  saw no ids and rejected the call with "…array is required". Both wrappers now
+  copy the ids into a plain array before the call. (`removeMarkers` had this
+  latent since its introduction; `removeOverlays` is new in this release.)
 - **Remote marker icons are no longer re-downloaded on every re-render.**
   Concurrent requests for the same url are de-duped, and a url that returns no
   usable image (e.g. a 404 body or undecodable content) is remembered so it is
@@ -67,13 +73,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
-- Expanded the Swift suite from 12 to 35 cases. To make the marker/overlay bridge
-  logic and zoom clamping testable without a UI harness, their pure cores were
+- Expanded the Swift suite from 12 to 36 cases (including a regression test that
+  a `CAPPluginCall` reads a JS string array, pinning down where the `removeOverlays`
+  bug was *not*). To make the marker/overlay bridge logic and zoom clamping
+  testable without a UI harness, their pure cores were
   extracted - `clampZoom`, `boundingMapRect` (the `fitBounds` framing rect),
   `Map.makeMarker` (marker payload parsing), and `Map.overlayStyle` (overlay
   stroke/fill resolution) - and each is now covered, alongside map-type mapping,
   overlay coordinate/ring parsing, hex color parsing, and
   `maxZoom`/`mapType`/`showInfoWindows` config parsing.
+- The example app now doubles as an on-device smoke test: on iOS it auto-runs a
+  scripted sequence over the new APIs (`getCameraPosition`, overlays, `fitBounds`,
+  `updateMarkers`), shows each as a ✓/✗ checklist, wires up the `onMapClick` /
+  `onMapLongClick` / `onClusterClick` / `onMarkerClick` listeners, and adds
+  buttons for `setMapType`, `fitBounds`, `removeOverlays`, and
+  `enableCurrentLocation`. The Android/web (Google Maps) path is unchanged.
 
 ## [0.3.4]
 

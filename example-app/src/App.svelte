@@ -18,19 +18,162 @@
 
   const center = { lat: 37.7749, lng: -122.4194 }; // San Francisco
   const markers = [
-    { coordinate: center, title: 'San Francisco' },
-    { coordinate: { lat: 37.8199, lng: -122.4783 }, title: 'Golden Gate Bridge' },
-    { coordinate: { lat: 37.8087, lng: -122.4098 }, title: "Fisherman's Wharf" },
+    { markerId: 'sf', coordinate: center, title: 'San Francisco', snippet: 'City Hall area' },
+    { markerId: 'ggb', coordinate: { lat: 37.8199, lng: -122.4783 }, title: 'Golden Gate Bridge', snippet: '1937' },
+    { markerId: 'wharf', coordinate: { lat: 37.8087, lng: -122.4098 }, title: "Fisherman's Wharf", snippet: 'Pier 39' },
   ];
 
   let element = $state<HTMLElement>();
+  // Shared handle used by the platform-agnostic paths (create/destroy/markers).
   let map: AppleMap | GoogleMap | undefined;
+  // Apple-only handle, assigned only on iOS, so the new MapKit-only calls
+  // type-check without casting the shared union everywhere.
+  let appleMap: AppleMap | undefined;
   let note = $state('');
+
+  // Results of the iOS smoke sequence, rendered as a ✓/✗ checklist.
+  let steps = $state<{ name: string; ok: boolean; detail: string }[]>([]);
+  // Overlay ids returned by the smoke sequence, so "Clear overlays" can undo them.
+  let overlayIds = $state<string[]>([]);
+  // Tracks the current base map type; the toggle label reflects the *next* action.
+  let satellite = $state(false);
 
   // Android draws the Google map BEHIND the webview and shows it through a
   // transparent element, so every layer above the map must be see-through or you
   // just see the page background. iOS/web render the map into the element itself.
   const isAndroid = Capacitor.getPlatform() === 'android';
+
+  const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+  // A bounds box around the 3 markers: southwest = min lat/lng, northeast =
+  // max lat/lng, center = the average. Used by fitBounds when no live bounds
+  // are handy.
+  function markerBounds() {
+    const lats = markers.map((m) => m.coordinate.lat);
+    const lngs = markers.map((m) => m.coordinate.lng);
+    const south = Math.min(...lats);
+    const north = Math.max(...lats);
+    const west = Math.min(...lngs);
+    const east = Math.max(...lngs);
+    return {
+      southwest: { lat: south, lng: west },
+      northeast: { lat: north, lng: east },
+      center: { lat: (south + north) / 2, lng: (west + east) / 2 },
+    };
+  }
+
+  // Run one named smoke step, recording ✓ + detail or ✗ + error into `steps`.
+  async function step(name: string, run: () => Promise<string>) {
+    try {
+      const detail = await run();
+      steps = [...steps, { name, ok: true, detail }];
+    } catch (err) {
+      steps = [...steps, { name, ok: false, detail: errMsg(err) }];
+    }
+  }
+
+  // The actual camera move, shared by the smoke sequence (which records a step)
+  // and the "Fit bounds" button (which reports via `note`, so repeated taps
+  // don't pollute the one-shot smoke checklist).
+  async function applyFitBounds() {
+    if (!appleMap) return;
+    await appleMap.fitBounds(markerBounds(), 48, true);
+  }
+
+  async function fitBoundsButton() {
+    try {
+      await applyFitBounds();
+      note = 'fit bounds';
+    } catch (err) {
+      note = `fitBounds failed: ${errMsg(err)}`;
+    }
+  }
+
+  // The automatic iOS-only exercise: touch each new AppleMap method once and
+  // report the outcome, keeping any overlay ids for later cleanup.
+  async function runSmokeSequence(am: AppleMap) {
+    await step('getCameraPosition', async () => {
+      const pos = await am.getCameraPosition();
+      return `zoom ${pos.zoom.toFixed(1)}`;
+    });
+
+    await step('addPolylines', async () => {
+      const ids = await am.addPolylines([
+        { path: markers.map((m) => m.coordinate), strokeColor: '#2563eb', strokeWeight: 4, strokeOpacity: 0.9 },
+      ]);
+      overlayIds = [...overlayIds, ...ids];
+      return `${ids.length} id${ids.length === 1 ? '' : 's'}`;
+    });
+
+    await step('addPolygons', async () => {
+      const ids = await am.addPolygons([
+        {
+          paths: markers.map((m) => m.coordinate),
+          strokeColor: '#2563eb',
+          strokeWeight: 2,
+          fillColor: '#3b82f6',
+          fillOpacity: 0.2,
+        },
+      ]);
+      overlayIds = [...overlayIds, ...ids];
+      return `${ids.length} id${ids.length === 1 ? '' : 's'}`;
+    });
+
+    await step('addCircles', async () => {
+      const ids = await am.addCircles([
+        { center, radius: 1500, strokeColor: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.2 },
+      ]);
+      overlayIds = [...overlayIds, ...ids];
+      return `${ids.length} id${ids.length === 1 ? '' : 's'}`;
+    });
+
+    await step('fitBounds', async () => {
+      await applyFitBounds();
+      return 'ok';
+    });
+
+    await step('updateMarkers', async () => {
+      await am.updateMarkers([
+        { markerId: 'sf', coordinate: { lat: center.lat + 0.01, lng: center.lng }, title: 'San Francisco (moved)' },
+      ]);
+      return 'ok';
+    });
+  }
+
+  // ── iOS control-bar actions ──────────────────────────────────────────────
+  async function toggleMapType() {
+    if (!appleMap) return;
+    try {
+      await appleMap.setMapType(satellite ? 'standard' : 'hybrid');
+      satellite = !satellite;
+      note = satellite ? 'satellite view' : 'standard view';
+    } catch (err) {
+      note = `setMapType failed: ${errMsg(err)}`;
+    }
+  }
+
+  async function clearOverlays() {
+    if (!appleMap || overlayIds.length === 0) return;
+    try {
+      await appleMap.removeOverlays(overlayIds);
+      note = `cleared ${overlayIds.length} overlays`;
+      overlayIds = [];
+    } catch (err) {
+      note = `removeOverlays failed: ${errMsg(err)}`;
+    }
+  }
+
+  async function myLocation() {
+    if (!appleMap) return;
+    try {
+      // Harmless without permission; to actually show the blue dot the app's
+      // Info.plist needs NSLocationWhenInUseUsageDescription.
+      await appleMap.enableCurrentLocation(true);
+      note = 'current location enabled';
+    } catch (err) {
+      note = `enableCurrentLocation failed: ${errMsg(err)}`;
+    }
+  }
 
   onMount(async () => {
     if (isAndroid) document.documentElement.classList.add('android-underlay');
@@ -39,17 +182,45 @@
       // create() waits for the element's layout internally, so there's nothing
       // to poll for here. forceCreate rebuilds the native view for this id
       // rather than reusing a stale one from a previous mount.
-      map = isIOS
-        ? await AppleMap.create({ id: 'map', element, config: { center, zoom: 11 }, forceCreate: true })
-        : await GoogleMap.create({ id: 'map', element, apiKey: googleKey, config: { center, zoom: 11 }, forceCreate: true });
+      if (isIOS) {
+        appleMap = await AppleMap.create({
+          id: 'map',
+          element,
+          config: { center, zoom: 11, minZoom: 3, maxZoom: 18, clustering: true, showInfoWindows: true },
+          forceCreate: true,
+        });
+        map = appleMap;
 
-      // No iconUrl needed — each provider draws its own default pin.
-      await map.addMarkers(markers);
-      await map.setOnMarkerClickListener((data) => {
-        note = `tapped ${data.title || data.markerId}`;
-      });
+        // No iconUrl needed — each provider draws its own default pin.
+        await appleMap.addMarkers(markers);
+
+        // Report every gesture through the single `note` string.
+        await appleMap.setOnMarkerClickListener((data) => {
+          note = `tapped ${data.title || data.markerId}`;
+        });
+        await appleMap.setOnMapClickListener((data) => {
+          note = `map click @ ${data.latitude.toFixed(3)},${data.longitude.toFixed(3)}`;
+        });
+        await appleMap.setOnMapLongClickListener((data) => {
+          note = `long-press @ ${data.latitude.toFixed(3)},${data.longitude.toFixed(3)}`;
+        });
+        await appleMap.setOnClusterClickListener((data) => {
+          note = `cluster ×${data.count}`;
+        });
+
+        // Kick off the automatic smoke sequence.
+        await runSmokeSequence(appleMap);
+      } else {
+        map = await GoogleMap.create({ id: 'map', element, apiKey: googleKey, config: { center, zoom: 11 }, forceCreate: true });
+
+        // No iconUrl needed — each provider draws its own default pin.
+        await map.addMarkers(markers);
+        await map.setOnMarkerClickListener((data) => {
+          note = `tapped ${data.title || data.markerId}`;
+        });
+      }
     } catch (err) {
-      note = `map error: ${err instanceof Error ? err.message : String(err)}`;
+      note = `map error: ${errMsg(err)}`;
     }
   });
 
@@ -70,7 +241,33 @@
       <p>iOS needs no key — run it there to see Apple Maps.</p>
     </div>
   {:else if isIOS}
-    <capacitor-apple-map bind:this={element} id="map" class="map"></capacitor-apple-map>
+    <div class="map-wrap">
+      <capacitor-apple-map bind:this={element} id="map" class="map"></capacitor-apple-map>
+
+      <!-- iOS-only control bar: every button calls the plugin and reports via `note`. -->
+      <div class="controls">
+        <button onclick={toggleMapType}>{satellite ? 'Standard' : 'Satellite'}</button>
+        <button onclick={fitBoundsButton}>Fit bounds</button>
+        <button onclick={clearOverlays} disabled={overlayIds.length === 0}>Clear overlays</button>
+        <button onclick={myLocation}>My location</button>
+      </div>
+
+      <!-- Smoke-test checklist + latest gesture note, translucent over the map. -->
+      <div class="panel">
+        <ul class="steps">
+          {#each steps as s, i (i)}
+            <li class:fail={!s.ok}>
+              <span class="mark">{s.ok ? '✓' : '✗'}</span>
+              <span class="step-name">{s.name}</span>
+              <span class="detail">{s.detail}</span>
+            </li>
+          {/each}
+        </ul>
+        {#if note}
+          <p class="note">{note}</p>
+        {/if}
+      </div>
+    </div>
   {:else}
     <capacitor-google-map bind:this={element} id="map" class="map"></capacitor-google-map>
   {/if}
@@ -111,10 +308,97 @@
     font-size: 13px;
     opacity: 0.9;
   }
+  /* Holds the map plus the iOS overlays; the map still fills all of it. */
+  .map-wrap {
+    position: relative;
+    flex: 1;
+    display: flex;
+  }
   .map {
     flex: 1;
     display: block;
     width: 100%;
+  }
+  .controls {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    z-index: 2;
+  }
+  .controls button {
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #eaf0ff;
+    background: rgba(20, 30, 62, 0.82);
+    border: 1px solid rgba(120, 150, 230, 0.5);
+    border-radius: 999px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    cursor: pointer;
+  }
+  .controls button:active {
+    background: rgba(64, 94, 201, 0.9);
+  }
+  .controls button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .panel {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: max(env(safe-area-inset-bottom), 12px);
+    max-height: 42%;
+    overflow-y: auto;
+    padding: 10px 12px;
+    color: #dbe4ff;
+    background: rgba(11, 16, 32, 0.78);
+    border: 1px solid rgba(120, 150, 230, 0.35);
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 2;
+  }
+  .steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .steps li {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .mark {
+    color: #4ade80;
+    font-weight: 700;
+  }
+  .steps li.fail .mark {
+    color: #f87171;
+  }
+  .step-name {
+    font-weight: 600;
+  }
+  .detail {
+    margin-left: auto;
+    opacity: 0.75;
+    font-variant-numeric: tabular-nums;
+  }
+  .note {
+    margin: 8px 0 0;
+    padding-top: 8px;
+    border-top: 1px solid rgba(120, 150, 230, 0.25);
+    font-size: 13px;
+    color: #aab8e6;
   }
   .notice {
     flex: 1;
