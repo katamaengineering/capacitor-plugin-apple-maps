@@ -28,6 +28,14 @@ export interface AppleMapConfig {
    * but without the flash. Defaults to `false`.
    */
   clustering?: boolean;
+  /** Base map imagery. Defaults to `standard`. */
+  mapType?: MapType;
+  /**
+   * Show MapKit's native callout bubble (title + optional snippet) when a marker
+   * with a `title` is tapped. Defaults to `false`, which preserves the
+   * tap-only behavior (`onMarkerClick` fires and the pin deselects immediately).
+   */
+  showInfoWindows?: boolean;
   // --- Populated by the wrapper, not by callers. ---
   width?: number;
   height?: number;
@@ -43,9 +51,26 @@ export interface CameraConfig {
   animate?: boolean;
 }
 
+/** The map's current camera, returned by {@link CapacitorAppleMapsPlugin.getCameraPosition}. */
+export interface CameraPosition {
+  latitude: number;
+  longitude: number;
+  /** Google-style zoom derived from the current region span. */
+  zoom: number;
+  bounds: LatLngBounds;
+}
+
+/**
+ * Base map imagery. Maps to `MKMapType`; the `*Flyover` variants render 3D
+ * satellite imagery where Apple has it. Defaults to `standard`.
+ */
+export type MapType = 'standard' | 'satellite' | 'hybrid' | 'satelliteFlyover' | 'hybridFlyover' | 'mutedStandard';
+
 export interface Marker {
   coordinate: LatLng;
   title?: string;
+  /** Secondary line shown under `title` in the native callout (see `showInfoWindows`). */
+  snippet?: string;
   /**
    * Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`),
    * an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. Omit it
@@ -54,6 +79,62 @@ export interface Marker {
   iconUrl?: string;
   /** Logical size in points. */
   iconSize?: { width: number; height: number };
+  /**
+   * Caller-supplied stable id. When set it is used verbatim (and echoed back
+   * from {@link CapacitorAppleMapsPlugin.addMarkers} and on tap) instead of a
+   * generated one, so the host can map pins back to its own domain objects and
+   * target them with {@link CapacitorAppleMapsPlugin.updateMarkers}.
+   */
+  markerId?: string;
+}
+
+/**
+ * A partial change to an existing marker, addressed by its `markerId`. Omitted
+ * fields are left as-is; a moved marker animates to its new coordinate.
+ */
+export interface MarkerUpdate {
+  markerId: string;
+  coordinate?: LatLng;
+  title?: string;
+  snippet?: string;
+  iconUrl?: string;
+  iconSize?: { width: number; height: number };
+}
+
+/** Shared stroke/fill styling for overlays. Colors are `#RRGGBB` or `#RRGGBBAA` hex. */
+export interface Polyline {
+  path: LatLng[];
+  /** Line color hex. Defaults to the system blue. */
+  strokeColor?: string;
+  /** Line width in points. Defaults to `3`. */
+  strokeWeight?: number;
+  /** Line opacity `0..1`, applied on top of any alpha in `strokeColor`. */
+  strokeOpacity?: number;
+}
+
+export interface Polygon {
+  /**
+   * Either a single ring of points, or an array of rings where the first is the
+   * exterior and the rest are holes.
+   */
+  paths: LatLng[] | LatLng[][];
+  strokeColor?: string;
+  strokeWeight?: number;
+  strokeOpacity?: number;
+  /** Fill color hex. Unfilled if omitted. */
+  fillColor?: string;
+  fillOpacity?: number;
+}
+
+export interface Circle {
+  center: LatLng;
+  /** Radius in meters. */
+  radius: number;
+  strokeColor?: string;
+  strokeWeight?: number;
+  strokeOpacity?: number;
+  fillColor?: string;
+  fillOpacity?: number;
 }
 
 /** Visible-region bounds, mirroring the `@capacitor/google-maps` shape. */
@@ -89,6 +170,26 @@ export interface MarkerClickCallbackData {
 
 export interface MapReadyCallbackData {
   mapId: string;
+}
+
+export interface MapClickCallbackData {
+  mapId: string;
+  latitude: number;
+  longitude: number;
+}
+
+/** A long-press on the map surface (not on a marker). */
+export type MapLongClickCallbackData = MapClickCallbackData;
+
+/** A tap on a cluster bubble. Carries the members it groups. */
+export interface ClusterClickCallbackData {
+  mapId: string;
+  latitude: number;
+  longitude: number;
+  /** Number of markers in the cluster. */
+  count: number;
+  /** The `markerId`s of the clustered markers. */
+  markerIds: string[];
 }
 
 /** One type-ahead suggestion from `searchAutocomplete`. */
@@ -131,10 +232,34 @@ export interface CapacitorAppleMapsPlugin {
   destroy(options: { id: string }): Promise<void>;
   setCamera(options: { id: string; config: CameraConfig }): Promise<void>;
   getMapBounds(options: { id: string }): Promise<LatLngBounds>;
+  /** Current camera as `{ latitude, longitude, zoom, bounds }`. */
+  getCameraPosition(options: { id: string }): Promise<CameraPosition>;
+  /**
+   * Move the camera to fit `bounds`, insetting the visible rect by `padding`
+   * points on every side (default `0`). Animates unless `animate` is `false`.
+   */
+  fitBounds(options: { id: string; bounds: LatLngBounds; padding?: number; animate?: boolean }): Promise<void>;
   addMarkers(options: { id: string; markers: Marker[] }): Promise<{ ids: string[] }>;
+  /** Apply partial changes to existing markers, addressed by `markerId`. */
+  updateMarkers(options: { id: string; markers: MarkerUpdate[] }): Promise<void>;
   removeMarkers(options: { id: string; markerIds: string[] }): Promise<void>;
   enableClustering(options: { id: string }): Promise<void>;
   disableClustering(options: { id: string }): Promise<void>;
+
+  addPolylines(options: { id: string; polylines: Polyline[] }): Promise<{ ids: string[] }>;
+  addPolygons(options: { id: string; polygons: Polygon[] }): Promise<{ ids: string[] }>;
+  addCircles(options: { id: string; circles: Circle[] }): Promise<{ ids: string[] }>;
+  /** Remove overlays (polylines, polygons, or circles) by the ids their add call returned. */
+  removeOverlays(options: { id: string; ids: string[] }): Promise<void>;
+
+  /** Set the base map imagery. */
+  setMapType(options: { id: string; mapType: MapType }): Promise<void>;
+  /**
+   * Show or hide the blue user-location dot. The host app is responsible for the
+   * `NSLocationWhenInUseUsageDescription` Info.plist key and for prompting the
+   * user for location permission; without it MapKit shows nothing.
+   */
+  enableCurrentLocation(options: { id: string; enabled: boolean }): Promise<void>;
 
   /**
    * Type-ahead place autocomplete via `MKLocalSearchCompleter`. Needs no API
@@ -178,5 +303,17 @@ export interface CapacitorAppleMapsPlugin {
   addListener(
     eventName: 'onMapReady',
     listenerFunc: (data: MapReadyCallbackData) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'onMapClick',
+    listenerFunc: (data: MapClickCallbackData) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'onMapLongClick',
+    listenerFunc: (data: MapLongClickCallbackData) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'onClusterClick',
+    listenerFunc: (data: ClusterClickCallbackData) => void,
   ): Promise<PluginListenerHandle>;
 }

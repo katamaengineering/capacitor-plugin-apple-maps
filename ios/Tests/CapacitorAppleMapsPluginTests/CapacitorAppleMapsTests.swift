@@ -40,6 +40,112 @@ class CapacitorAppleMapsTests: XCTestCase {
         XCTAssertTrue(zoom.isFinite)
     }
 
+    // MARK: - Zoom clamping (minZoom floor / maxZoom ceiling)
+
+    func testClampZoomUnboundedIsIdentity() {
+        XCTAssertEqual(clampZoom(11.0, minZoom: nil, maxZoom: nil), 11.0)
+    }
+
+    func testClampZoomAppliesFloorAndCeiling() {
+        XCTAssertEqual(clampZoom(3.0, minZoom: 7.0, maxZoom: nil), 7.0)   // below floor
+        XCTAssertEqual(clampZoom(20.0, minZoom: nil, maxZoom: 18.0), 18.0) // above ceiling
+        XCTAssertEqual(clampZoom(12.0, minZoom: 7.0, maxZoom: 18.0), 12.0) // in range
+    }
+
+    /// An inverted range should not trap the value between crossed bounds; the
+    /// ceiling wins (min is applied first, then max).
+    func testClampZoomInvertedRangeCeilingWins() {
+        XCTAssertEqual(clampZoom(12.0, minZoom: 18.0, maxZoom: 7.0), 7.0)
+    }
+
+    // MARK: - fitBounds framing rect
+
+    func testBoundingMapRectContainsBothCorners() {
+        let southWest = CLLocationCoordinate2D(latitude: 41.0, longitude: -73.0)
+        let northEast = CLLocationCoordinate2D(latitude: 43.0, longitude: -69.0)
+        let rect = boundingMapRect(southwest: southWest, northeast: northEast)
+        XCTAssertTrue(rect.contains(MKMapPoint(southWest)))
+        XCTAssertTrue(rect.contains(MKMapPoint(northEast)))
+        XCTAssertGreaterThan(rect.size.width, 0)
+        XCTAssertGreaterThan(rect.size.height, 0)
+    }
+
+    /// The rect is orientation-independent: swapping the corners yields the same
+    /// rect (latitude grows north but MKMapPoint.y grows south).
+    func testBoundingMapRectIsOrientationIndependent() {
+        let southWest = CLLocationCoordinate2D(latitude: 41.0, longitude: -73.0)
+        let northEast = CLLocationCoordinate2D(latitude: 43.0, longitude: -69.0)
+        let rect = boundingMapRect(southwest: southWest, northeast: northEast)
+        let swapped = boundingMapRect(southwest: northEast, northeast: southWest)
+        XCTAssertEqual(rect.origin.x, swapped.origin.x, accuracy: 1e-6)
+        XCTAssertEqual(rect.origin.y, swapped.origin.y, accuracy: 1e-6)
+        XCTAssertEqual(rect.size.width, swapped.size.width, accuracy: 1e-6)
+        XCTAssertEqual(rect.size.height, swapped.size.height, accuracy: 1e-6)
+    }
+
+    // MARK: - Marker payload parsing
+
+    func testMakeMarkerReadsAllFields() {
+        let obj: JSObject = [
+            "coordinate": ["lat": 42.36, "lng": -71.06] as JSObject,
+            "title": "Boston",
+            "snippet": "MA",
+            "iconUrl": "pin.png",
+            "iconSize": ["width": 30.0, "height": 36.0] as JSObject
+        ]
+        let marker = Map.makeMarker(from: obj)
+        XCTAssertNotNil(marker)
+        XCTAssertEqual(marker?.coordinate.latitude ?? 0, 42.36, accuracy: 1e-9)
+        XCTAssertEqual(marker?.title, "Boston")
+        XCTAssertEqual(marker?.subtitle, "MA")
+        XCTAssertEqual(marker?.iconUrl, "pin.png")
+        XCTAssertEqual(marker?.iconSize, CGSize(width: 30, height: 36))
+    }
+
+    func testMakeMarkerUsesCustomIdButIgnoresEmpty() {
+        let coordinate = ["lat": 0.0, "lng": 0.0] as JSObject
+        let custom = Map.makeMarker(from: ["coordinate": coordinate, "markerId": "abc"])
+        XCTAssertEqual(custom?.markerId, "abc")
+
+        let empty = Map.makeMarker(from: ["coordinate": coordinate, "markerId": ""])
+        XCTAssertFalse(empty?.markerId.isEmpty ?? true) // fell back to a generated id
+        XCTAssertNotEqual(empty?.markerId, "")
+    }
+
+    func testMakeMarkerReturnsNilWithoutCoordinate() {
+        XCTAssertNil(Map.makeMarker(from: ["title": "no coord"]))
+        XCTAssertNil(Map.makeMarker(from: ["coordinate": ["lat": 1.0] as JSObject]))
+    }
+
+    // MARK: - Overlay style parsing
+
+    func testOverlayStyleUnfilledUsesDefaults() {
+        let style = Map.overlayStyle(from: [:], defaultLineWidth: 3, filled: false)
+        XCTAssertEqual(style.lineWidth, 3)
+        XCTAssertNil(style.fillColor) // polylines never fill
+        XCTAssertNotNil(style.strokeColor) // defaults to system blue
+    }
+
+    func testOverlayStyleFilledParsesColorsAndWidth() {
+        let obj: JSObject = [
+            "strokeColor": "#FF0000",
+            "strokeWeight": 5.0,
+            "fillColor": "#00FF00",
+            "fillOpacity": 0.5
+        ]
+        let style = Map.overlayStyle(from: obj, defaultLineWidth: 2, filled: true)
+        XCTAssertEqual(style.lineWidth, 5)
+
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        style.strokeColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        XCTAssertEqual(red, 1.0, accuracy: 1e-6)
+
+        XCTAssertNotNil(style.fillColor)
+        style.fillColor?.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        XCTAssertEqual(green, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(alpha, 0.5, accuracy: 1e-6)
+    }
+
     // MARK: - Region corners (visible bounds math)
 
     func testRegionCorners() {
@@ -78,6 +184,124 @@ class CapacitorAppleMapsTests: XCTestCase {
     func testConfigThrowsWithoutCenter() {
         let obj: JSObject = ["zoom": 11.0]
         XCTAssertThrowsError(try AppleMapConfig(fromJSObject: obj))
+    }
+
+    func testConfigParsesMaxZoomAndMapType() throws {
+        let obj: JSObject = [
+            "center": ["lat": 0.0, "lng": 0.0] as JSObject,
+            "maxZoom": 18.0,
+            "mapType": "hybrid"
+        ]
+        let config = try AppleMapConfig(fromJSObject: obj)
+        XCTAssertEqual(config.maxZoom, 18.0)
+        XCTAssertEqual(config.mapType, "hybrid")
+    }
+
+    func testConfigDefaultsMapTypeToStandard() throws {
+        let obj: JSObject = ["center": ["lat": 0.0, "lng": 0.0] as JSObject]
+        let config = try AppleMapConfig(fromJSObject: obj)
+        XCTAssertNil(config.maxZoom)
+        XCTAssertEqual(config.mapType, "standard")
+    }
+
+    func testConfigParsesShowInfoWindows() throws {
+        let center = ["lat": 0.0, "lng": 0.0] as JSObject
+        let enabled = try AppleMapConfig(fromJSObject: ["center": center, "showInfoWindows": true])
+        XCTAssertTrue(enabled.showInfoWindows)
+        // Defaults off, preserving the original tap-only behavior.
+        let disabled = try AppleMapConfig(fromJSObject: ["center": center])
+        XCTAssertFalse(disabled.showInfoWindows)
+    }
+
+    // MARK: - Map type mapping
+
+    func testMapTypeMappingIsCaseInsensitive() {
+        XCTAssertEqual(Map.mapType(from: "satellite"), .satellite)
+        XCTAssertEqual(Map.mapType(from: "Hybrid"), .hybrid)
+        XCTAssertEqual(Map.mapType(from: "satelliteFlyover"), .satelliteFlyover)
+        XCTAssertEqual(Map.mapType(from: "hybridflyover"), .hybridFlyover)
+        XCTAssertEqual(Map.mapType(from: "mutedStandard"), .mutedStandard)
+    }
+
+    func testMapTypeUnknownFallsBackToStandard() {
+        XCTAssertEqual(Map.mapType(from: "standard"), .standard)
+        XCTAssertEqual(Map.mapType(from: "nonsense"), .standard)
+    }
+
+    // MARK: - Overlay coordinate parsing
+
+    func testParseCoordsReadsLatLngObjects() {
+        let arr: [JSObject] = [["lat": 1.0, "lng": 2.0], ["lat": 3.0, "lng": 4.0]]
+        let coords = Map.parseCoords(arr)
+        XCTAssertEqual(coords.count, 2)
+        XCTAssertEqual(coords[0].latitude, 1.0, accuracy: 1e-9)
+        XCTAssertEqual(coords[1].longitude, 4.0, accuracy: 1e-9)
+    }
+
+    func testParseCoordsIgnoresMalformedEntriesAndNonArrays() {
+        let mixed: [JSObject] = [["lat": 1.0, "lng": 2.0], ["lat": 3.0]]
+        XCTAssertEqual(Map.parseCoords(mixed).count, 1)
+        XCTAssertEqual(Map.parseCoords(nil).count, 0)
+        XCTAssertEqual(Map.parseCoords("not an array").count, 0)
+    }
+
+    /// A flat ring of coordinates yields a single exterior ring.
+    func testParseRingsSingleRing() {
+        let ring: [JSObject] = [
+            ["lat": 0.0, "lng": 0.0], ["lat": 0.0, "lng": 1.0], ["lat": 1.0, "lng": 1.0]
+        ]
+        let rings = Map.parseRings(ring)
+        XCTAssertEqual(rings.count, 1)
+        XCTAssertEqual(rings[0].count, 3)
+    }
+
+    /// An array of rings yields exterior + holes in order.
+    func testParseRingsMultipleRings() {
+        let exterior: [JSObject] = [
+            ["lat": 0.0, "lng": 0.0], ["lat": 0.0, "lng": 4.0], ["lat": 4.0, "lng": 4.0]
+        ]
+        let hole: [JSObject] = [
+            ["lat": 1.0, "lng": 1.0], ["lat": 1.0, "lng": 2.0], ["lat": 2.0, "lng": 2.0]
+        ]
+        let rings = Map.parseRings([exterior, hole])
+        XCTAssertEqual(rings.count, 2)
+        XCTAssertEqual(rings[0].count, 3)
+        XCTAssertEqual(rings[1].count, 3)
+    }
+
+    // MARK: - Hex color parsing
+
+    func testColorParsesSixDigitHex() {
+        let color = Map.color("#FF0000", opacity: nil)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        XCTAssertNotNil(color)
+        color?.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        XCTAssertEqual(red, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(green, 0.0, accuracy: 1e-6)
+        XCTAssertEqual(blue, 0.0, accuracy: 1e-6)
+        XCTAssertEqual(alpha, 1.0, accuracy: 1e-6)
+    }
+
+    func testColorParsesEightDigitHexAlpha() {
+        let color = Map.color("#0000FF80", opacity: nil)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        color?.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        XCTAssertEqual(blue, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(alpha, 128.0 / 255.0, accuracy: 1e-6)
+    }
+
+    /// An explicit opacity overrides any alpha baked into the hex string.
+    func testColorOpacityOverridesHexAlpha() {
+        let color = Map.color("#0000FF80", opacity: 0.5)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        color?.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        XCTAssertEqual(alpha, 0.5, accuracy: 1e-6)
+    }
+
+    func testColorReturnsNilForMalformedInput() {
+        XCTAssertNil(Map.color(nil, opacity: nil))
+        XCTAssertNil(Map.color("not-a-color", opacity: nil))
+        XCTAssertNil(Map.color("#FFFF", opacity: nil)) // unsupported length
     }
 
     // MARK: - CGRect parsing

@@ -5,6 +5,76 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0]
+
+### Added
+
+- **Overlays.** `addPolylines`, `addPolygons` (with holes), and `addCircles`
+  return ids; `removeOverlays` takes ids from any of them. Each accepts hex
+  stroke/fill colors (`#RRGGBB` or `#RRGGBBAA`) with an optional `strokeOpacity`
+  / `fillOpacity` override, drawn natively via `MKOverlayRenderer`.
+- **`fitBounds(bounds, padding?)`.** Frame a `LatLngBounds` in the viewport,
+  inset by `padding` points, via `setVisibleMapRect(_:edgePadding:)` - handy for
+  framing every pin after `addMarkers`.
+- **`getCameraPosition`.** Read the current camera as
+  `{ latitude, longitude, zoom, bounds }` (the write side, `setCamera`, already
+  existed).
+- **`updateMarkers`.** Apply partial changes to existing markers by `markerId`:
+  a moved marker animates to its new coordinate; title/icon changes rebuild the
+  pin in place. `Marker` also accepts a caller-supplied `markerId` so the host
+  can map pins back to its own domain objects instead of tracking generated ids.
+- **`onMapClick` event** (`setOnMapClickListener`). Fires for taps on the map
+  surface, ignoring taps that land on a marker (those still report via
+  `onMarkerClick`).
+- **`onMapLongClick` event** (`setOnMapLongClickListener`). Fires for a long-press
+  on the map surface (again ignoring presses on a marker).
+- **`onClusterClick` event** (`setOnClusterClickListener`). Fires when a cluster
+  bubble is tapped, carrying the cluster's coordinate, member `count`, and the
+  member `markerIds`. The existing zoom-to-fit-members behavior is unchanged.
+- **Native info windows** (`AppleMapConfig.showInfoWindows`, default `false`).
+  When enabled, tapping a marker that has a `title` shows MapKit's native callout
+  bubble (with an optional `Marker.snippet` as the second line) instead of
+  deselecting immediately. `onMarkerClick` still fires either way.
+- **`setMapType` / `AppleMapConfig.mapType`.** Choose the base imagery
+  (`standard`, `satellite`, `hybrid`, `satelliteFlyover`, `hybridFlyover`,
+  `mutedStandard`).
+- **`enableCurrentLocation(enabled)`.** Show or hide the blue user-location dot.
+  The host app is responsible for `NSLocationWhenInUseUsageDescription` and for
+  obtaining location permission.
+
+### Fixed
+
+- **`maxZoom` was accepted but ignored.** It is now enforced as a zoom-in
+  ceiling - clamped in programmatic camera moves and bounced back on gesture -
+  symmetric with the existing `minZoom` floor.
+- **Marker icon cache no longer grows without bound.** The per-map icon cache is
+  now an `NSCache` (capped, and evicted under memory pressure) instead of a
+  dictionary that retained every distinct icon for the life of the map.
+- **Remote marker icons are no longer re-downloaded on every re-render.**
+  Concurrent requests for the same url are de-duped, and a url that returns no
+  usable image (e.g. a 404 body or undecodable content) is remembered so it is
+  not re-fetched each time annotations are rebuilt (such as on a clustering
+  toggle). Transient transport errors (offline, timeout) are not cached, so a
+  later render can still retry them.
+
+### Changed
+
+- The native implementation was split into `Overlays.swift` (overlay drawing,
+  map type, user location, map-tap, and shared parsing/color helpers),
+  `MapMounting.swift` (the web-view compositing and frame-sync glue), and
+  `MarkerIcons.swift` (marker icon resolution and caching), keeping the core
+  `Map` and plugin types readable. No behavior change.
+
+### Tests
+
+- Expanded the Swift suite from 12 to 35 cases. To make the marker/overlay bridge
+  logic and zoom clamping testable without a UI harness, their pure cores were
+  extracted - `clampZoom`, `boundingMapRect` (the `fitBounds` framing rect),
+  `Map.makeMarker` (marker payload parsing), and `Map.overlayStyle` (overlay
+  stroke/fill resolution) - and each is now covered, alongside map-type mapping,
+  overlay coordinate/ring parsing, hex color parsing, and
+  `maxZoom`/`mapType`/`showInfoWindows` config parsing.
+
 ## [0.3.4]
 
 ### Added

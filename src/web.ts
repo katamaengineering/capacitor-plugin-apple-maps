@@ -28,7 +28,19 @@ export class CapacitorAppleMapsWeb extends WebPlugin implements CapacitorAppleMa
     this.notAvailable();
   }
 
+  async getCameraPosition(): Promise<never> {
+    this.notAvailable();
+  }
+
+  async fitBounds(): Promise<void> {
+    this.notAvailable();
+  }
+
   async addMarkers(): Promise<{ ids: string[] }> {
+    this.notAvailable();
+  }
+
+  async updateMarkers(): Promise<void> {
     this.notAvailable();
   }
 
@@ -41,6 +53,30 @@ export class CapacitorAppleMapsWeb extends WebPlugin implements CapacitorAppleMa
   }
 
   async disableClustering(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async addPolylines(): Promise<{ ids: string[] }> {
+    this.notAvailable();
+  }
+
+  async addPolygons(): Promise<{ ids: string[] }> {
+    this.notAvailable();
+  }
+
+  async addCircles(): Promise<{ ids: string[] }> {
+    this.notAvailable();
+  }
+
+  async removeOverlays(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async setMapType(): Promise<void> {
+    this.notAvailable();
+  }
+
+  async enableCurrentLocation(): Promise<void> {
     this.notAvailable();
   }
 

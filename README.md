@@ -96,24 +96,37 @@ const map =
 
 <docgen-index>
 
-- [`create(...)`](#create)
-- [`destroy(...)`](#destroy)
-- [`setCamera(...)`](#setcamera)
-- [`getMapBounds(...)`](#getmapbounds)
-- [`addMarkers(...)`](#addmarkers)
-- [`removeMarkers(...)`](#removemarkers)
-- [`enableClustering(...)`](#enableclustering)
-- [`disableClustering(...)`](#disableclustering)
-- [`searchAutocomplete(...)`](#searchautocomplete)
-- [`searchPlaces(...)`](#searchplaces)
-- [`searchResolve(...)`](#searchresolve)
-- [`onResize(...)`](#onresize)
-- [`onDisplay(...)`](#ondisplay)
-- [`onScroll(...)`](#onscroll)
-- [`addListener('onCameraIdle', ...)`](#addlisteneroncameraidle-)
-- [`addListener('onMarkerClick', ...)`](#addlisteneronmarkerclick-)
-- [`addListener('onMapReady', ...)`](#addlisteneronmapready-)
-- [Interfaces](#interfaces)
+* [`create(...)`](#create)
+* [`destroy(...)`](#destroy)
+* [`setCamera(...)`](#setcamera)
+* [`getMapBounds(...)`](#getmapbounds)
+* [`getCameraPosition(...)`](#getcameraposition)
+* [`fitBounds(...)`](#fitbounds)
+* [`addMarkers(...)`](#addmarkers)
+* [`updateMarkers(...)`](#updatemarkers)
+* [`removeMarkers(...)`](#removemarkers)
+* [`enableClustering(...)`](#enableclustering)
+* [`disableClustering(...)`](#disableclustering)
+* [`addPolylines(...)`](#addpolylines)
+* [`addPolygons(...)`](#addpolygons)
+* [`addCircles(...)`](#addcircles)
+* [`removeOverlays(...)`](#removeoverlays)
+* [`setMapType(...)`](#setmaptype)
+* [`enableCurrentLocation(...)`](#enablecurrentlocation)
+* [`searchAutocomplete(...)`](#searchautocomplete)
+* [`searchPlaces(...)`](#searchplaces)
+* [`searchResolve(...)`](#searchresolve)
+* [`onResize(...)`](#onresize)
+* [`onDisplay(...)`](#ondisplay)
+* [`onScroll(...)`](#onscroll)
+* [`addListener('onCameraIdle', ...)`](#addlisteneroncameraidle-)
+* [`addListener('onMarkerClick', ...)`](#addlisteneronmarkerclick-)
+* [`addListener('onMapReady', ...)`](#addlisteneronmapready-)
+* [`addListener('onMapClick', ...)`](#addlisteneronmapclick-)
+* [`addListener('onMapLongClick', ...)`](#addlisteneronmaplongclick-)
+* [`addListener('onClusterClick', ...)`](#addlisteneronclusterclick-)
+* [Interfaces](#interfaces)
+* [Type Aliases](#type-aliases)
 
 </docgen-index>
 
@@ -133,7 +146,8 @@ create(options: { id: string; config: AppleMapConfig; element?: unknown; forceCr
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | **`options`** | <code>{ id: string; config: <a href="#applemapconfig">AppleMapConfig</a>; element?: unknown; forceCreate?: boolean; }</code> |
 
----
+--------------------
+
 
 ### destroy(...)
 
@@ -145,7 +159,8 @@ destroy(options: { id: string; }) => Promise<void>
 | ------------- | ---------------------------- |
 | **`options`** | <code>{ id: string; }</code> |
 
----
+--------------------
+
 
 ### setCamera(...)
 
@@ -157,7 +172,8 @@ setCamera(options: { id: string; config: CameraConfig; }) => Promise<void>
 | ------------- | ------------------------------------------------------------------------------ |
 | **`options`** | <code>{ id: string; config: <a href="#cameraconfig">CameraConfig</a>; }</code> |
 
----
+--------------------
+
 
 ### getMapBounds(...)
 
@@ -171,7 +187,41 @@ getMapBounds(options: { id: string; }) => Promise<LatLngBounds>
 
 **Returns:** <code>Promise&lt;<a href="#latlngbounds">LatLngBounds</a>&gt;</code>
 
----
+--------------------
+
+
+### getCameraPosition(...)
+
+```typescript
+getCameraPosition(options: { id: string; }) => Promise<CameraPosition>
+```
+
+Current camera as `{ latitude, longitude, zoom, bounds }`.
+
+| Param         | Type                         |
+| ------------- | ---------------------------- |
+| **`options`** | <code>{ id: string; }</code> |
+
+**Returns:** <code>Promise&lt;<a href="#cameraposition">CameraPosition</a>&gt;</code>
+
+--------------------
+
+
+### fitBounds(...)
+
+```typescript
+fitBounds(options: { id: string; bounds: LatLngBounds; padding?: number; animate?: boolean; }) => Promise<void>
+```
+
+Move the camera to fit `bounds`, insetting the visible rect by `padding`
+points on every side (default `0`). Animates unless `animate` is `false`.
+
+| Param         | Type                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **`options`** | <code>{ id: string; bounds: <a href="#latlngbounds">LatLngBounds</a>; padding?: number; animate?: boolean; }</code> |
+
+--------------------
+
 
 ### addMarkers(...)
 
@@ -185,7 +235,23 @@ addMarkers(options: { id: string; markers: Marker[]; }) => Promise<{ ids: string
 
 **Returns:** <code>Promise&lt;{ ids: string[]; }&gt;</code>
 
----
+--------------------
+
+
+### updateMarkers(...)
+
+```typescript
+updateMarkers(options: { id: string; markers: MarkerUpdate[]; }) => Promise<void>
+```
+
+Apply partial changes to existing markers, addressed by `markerId`.
+
+| Param         | Type                                                  |
+| ------------- | ----------------------------------------------------- |
+| **`options`** | <code>{ id: string; markers: MarkerUpdate[]; }</code> |
+
+--------------------
+
 
 ### removeMarkers(...)
 
@@ -197,7 +263,8 @@ removeMarkers(options: { id: string; markerIds: string[]; }) => Promise<void>
 | ------------- | ------------------------------------------------- |
 | **`options`** | <code>{ id: string; markerIds: string[]; }</code> |
 
----
+--------------------
+
 
 ### enableClustering(...)
 
@@ -209,7 +276,8 @@ enableClustering(options: { id: string; }) => Promise<void>
 | ------------- | ---------------------------- |
 | **`options`** | <code>{ id: string; }</code> |
 
----
+--------------------
+
 
 ### disableClustering(...)
 
@@ -221,7 +289,100 @@ disableClustering(options: { id: string; }) => Promise<void>
 | ------------- | ---------------------------- |
 | **`options`** | <code>{ id: string; }</code> |
 
----
+--------------------
+
+
+### addPolylines(...)
+
+```typescript
+addPolylines(options: { id: string; polylines: Polyline[]; }) => Promise<{ ids: string[]; }>
+```
+
+| Param         | Type                                                |
+| ------------- | --------------------------------------------------- |
+| **`options`** | <code>{ id: string; polylines: Polyline[]; }</code> |
+
+**Returns:** <code>Promise&lt;{ ids: string[]; }&gt;</code>
+
+--------------------
+
+
+### addPolygons(...)
+
+```typescript
+addPolygons(options: { id: string; polygons: Polygon[]; }) => Promise<{ ids: string[]; }>
+```
+
+| Param         | Type                                              |
+| ------------- | ------------------------------------------------- |
+| **`options`** | <code>{ id: string; polygons: Polygon[]; }</code> |
+
+**Returns:** <code>Promise&lt;{ ids: string[]; }&gt;</code>
+
+--------------------
+
+
+### addCircles(...)
+
+```typescript
+addCircles(options: { id: string; circles: Circle[]; }) => Promise<{ ids: string[]; }>
+```
+
+| Param         | Type                                            |
+| ------------- | ----------------------------------------------- |
+| **`options`** | <code>{ id: string; circles: Circle[]; }</code> |
+
+**Returns:** <code>Promise&lt;{ ids: string[]; }&gt;</code>
+
+--------------------
+
+
+### removeOverlays(...)
+
+```typescript
+removeOverlays(options: { id: string; ids: string[]; }) => Promise<void>
+```
+
+Remove overlays (polylines, polygons, or circles) by the ids their add call returned.
+
+| Param         | Type                                        |
+| ------------- | ------------------------------------------- |
+| **`options`** | <code>{ id: string; ids: string[]; }</code> |
+
+--------------------
+
+
+### setMapType(...)
+
+```typescript
+setMapType(options: { id: string; mapType: MapType; }) => Promise<void>
+```
+
+Set the base map imagery.
+
+| Param         | Type                                                                  |
+| ------------- | --------------------------------------------------------------------- |
+| **`options`** | <code>{ id: string; mapType: <a href="#maptype">MapType</a>; }</code> |
+
+--------------------
+
+
+### enableCurrentLocation(...)
+
+```typescript
+enableCurrentLocation(options: { id: string; enabled: boolean; }) => Promise<void>
+```
+
+Show or hide the blue user-location dot. The host app is responsible for the
+`NSLocationWhenInUseUsageDescription` Info.plist key and for prompting the
+user for location permission; without it MapKit shows nothing.
+
+| Param         | Type                                           |
+| ------------- | ---------------------------------------------- |
+| **`options`** | <code>{ id: string; enabled: boolean; }</code> |
+
+--------------------
+
 
 ### searchAutocomplete(...)
 
@@ -239,7 +400,8 @@ carries an opaque `id`; pass it to {@link searchResolve} to get coordinates.
 
 **Returns:** <code>Promise&lt;{ results: SearchCompletion[]; }&gt;</code>
 
----
+--------------------
+
 
 ### searchPlaces(...)
 
@@ -258,7 +420,8 @@ the results carry coordinates up front. Pass `region` to scope/bias results,
 
 **Returns:** <code>Promise&lt;{ results: SearchResult[]; }&gt;</code>
 
----
+--------------------
+
 
 ### searchResolve(...)
 
@@ -275,7 +438,8 @@ Returns an empty object if the id is unknown or has no location.
 
 **Returns:** <code>Promise&lt;{ lat?: number; lng?: number; title?: string; }&gt;</code>
 
----
+--------------------
+
 
 ### onResize(...)
 
@@ -289,7 +453,8 @@ Keep the native frame in sync as the element resizes.
 | ------------- | --------------------------------------------------------------------------- |
 | **`options`** | <code>{ id: string; mapBounds: <a href="#mapbounds">MapBounds</a>; }</code> |
 
----
+--------------------
+
 
 ### onDisplay(...)
 
@@ -303,7 +468,8 @@ Re-mount the native view after the element becomes visible again.
 | ------------- | --------------------------------------------------------------------------- |
 | **`options`** | <code>{ id: string; mapBounds: <a href="#mapbounds">MapBounds</a>; }</code> |
 
----
+--------------------
+
 
 ### onScroll(...)
 
@@ -317,7 +483,8 @@ Keep the native frame in sync as the page scrolls (no-op on iOS).
 | ------------- | --------------------------------------------------------------------------- |
 | **`options`** | <code>{ id: string; mapBounds: <a href="#mapbounds">MapBounds</a>; }</code> |
 
----
+--------------------
+
 
 ### addListener('onCameraIdle', ...)
 
@@ -332,7 +499,8 @@ addListener(eventName: 'onCameraIdle', listenerFunc: (data: CameraIdleCallbackDa
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
----
+--------------------
+
 
 ### addListener('onMarkerClick', ...)
 
@@ -347,7 +515,8 @@ addListener(eventName: 'onMarkerClick', listenerFunc: (data: MarkerClickCallback
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
----
+--------------------
+
 
 ### addListener('onMapReady', ...)
 
@@ -362,9 +531,59 @@ addListener(eventName: 'onMapReady', listenerFunc: (data: MapReadyCallbackData) 
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
----
+--------------------
+
+
+### addListener('onMapClick', ...)
+
+```typescript
+addListener(eventName: 'onMapClick', listenerFunc: (data: MapClickCallbackData) => void) => Promise<PluginListenerHandle>
+```
+
+| Param              | Type                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| **`eventName`**    | <code>'onMapClick'</code>                                                                |
+| **`listenerFunc`** | <code>(data: <a href="#mapclickcallbackdata">MapClickCallbackData</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
+### addListener('onMapLongClick', ...)
+
+```typescript
+addListener(eventName: 'onMapLongClick', listenerFunc: (data: MapLongClickCallbackData) => void) => Promise<PluginListenerHandle>
+```
+
+| Param              | Type                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| **`eventName`**    | <code>'onMapLongClick'</code>                                                            |
+| **`listenerFunc`** | <code>(data: <a href="#mapclickcallbackdata">MapClickCallbackData</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
+### addListener('onClusterClick', ...)
+
+```typescript
+addListener(eventName: 'onClusterClick', listenerFunc: (data: ClusterClickCallbackData) => void) => Promise<PluginListenerHandle>
+```
+
+| Param              | Type                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| **`eventName`**    | <code>'onClusterClick'</code>                                                                    |
+| **`listenerFunc`** | <code>(data: <a href="#clusterclickcallbackdata">ClusterClickCallbackData</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
 
 ### Interfaces
+
 
 #### AppleMapConfig
 
@@ -372,17 +591,21 @@ Initial map configuration. The `width`/`height`/`x`/`y`/`devicePixelRatio`
 fields are populated by the {@link AppleMap} wrapper from the bound element's
 bounding rectangle - callers do not set them.
 
-| Prop                   | Type                                      | Description                                                                            |
-| ---------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------- |
-| **`center`**           | <code><a href="#latlng">LatLng</a></code> |                                                                                        |
-| **`zoom`**             | <code>number</code>                       | Google-style zoom (0 = whole world). Converted to an MKCoordinateRegion span natively. |
-| **`minZoom`**          | <code>number</code>                       | Hard zoom-out floor. Programmatic and gesture moves are clamped to this.               |
-| **`maxZoom`**          | <code>number</code>                       |                                                                                        |
-| **`width`**            | <code>number</code>                       |                                                                                        |
-| **`height`**           | <code>number</code>                       |                                                                                        |
-| **`x`**                | <code>number</code>                       |                                                                                        |
-| **`y`**                | <code>number</code>                       |                                                                                        |
-| **`devicePixelRatio`** | <code>number</code>                       |                                                                                        |
+| Prop                   | Type                                        | Description                                                                                                                                                                                                                                                                      |
+| ---------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`center`**           | <code><a href="#latlng">LatLng</a></code>   |                                                                                                                                                                                                                                                                                  |
+| **`zoom`**             | <code>number</code>                         | Google-style zoom (0 = whole world). Converted to an MKCoordinateRegion span natively.                                                                                                                                                                                           |
+| **`minZoom`**          | <code>number</code>                         | Hard zoom-out floor. Programmatic and gesture moves are clamped to this.                                                                                                                                                                                                         |
+| **`maxZoom`**          | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
+| **`clustering`**       | <code>boolean</code>                        | Start with clustering enabled, so markers added later cluster on their first render instead of briefly appearing as individual pins. Equivalent to calling {@link AppleMap.enableClustering} before any {@link AppleMap.addMarkers}, but without the flash. Defaults to `false`. |
+| **`mapType`**          | <code><a href="#maptype">MapType</a></code> | Base map imagery. Defaults to `standard`.                                                                                                                                                                                                                                        |
+| **`showInfoWindows`**  | <code>boolean</code>                        | Show MapKit's native callout bubble (title + optional snippet) when a marker with a `title` is tapped. Defaults to `false`, which preserves the tap-only behavior (`onMarkerClick` fires and the pin deselects immediately).                                                     |
+| **`width`**            | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
+| **`height`**           | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
+| **`x`**                | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
+| **`y`**                | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
+| **`devicePixelRatio`** | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
+
 
 #### LatLng
 
@@ -394,6 +617,7 @@ two plugins can sit behind one abstraction in the host app.
 | **`lat`** | <code>number</code> |
 | **`lng`** | <code>number</code> |
 
+
 #### CameraConfig
 
 | Prop             | Type                                      | Description                                                                        |
@@ -401,6 +625,7 @@ two plugins can sit behind one abstraction in the host app.
 | **`coordinate`** | <code><a href="#latlng">LatLng</a></code> |                                                                                    |
 | **`zoom`**       | <code>number</code>                       |                                                                                    |
 | **`animate`**    | <code>boolean</code>                      | Animate the camera move. Defaults to `false` to match the host app's expectations. |
+
 
 #### LatLngBounds
 
@@ -412,14 +637,82 @@ Visible-region bounds, mirroring the `@capacitor/google-maps` shape.
 | **`center`**    | <code><a href="#latlng">LatLng</a></code> |
 | **`northeast`** | <code><a href="#latlng">LatLng</a></code> |
 
+
+#### CameraPosition
+
+The map's current camera, returned by {@link CapacitorAppleMapsPlugin.getCameraPosition}.
+
+| Prop            | Type                                                  | Description                                             |
+| --------------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| **`latitude`**  | <code>number</code>                                   |                                                         |
+| **`longitude`** | <code>number</code>                                   |                                                         |
+| **`zoom`**      | <code>number</code>                                   | Google-style zoom derived from the current region span. |
+| **`bounds`**    | <code><a href="#latlngbounds">LatLngBounds</a></code> |                                                         |
+
+
 #### Marker
 
-| Prop             | Type                                            | Description                                                                                                                                                                              |
-| ---------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |                                                                                                                                                                                          |
-| **`title`**      | <code>string</code>                             |                                                                                                                                                                                          |
-| **`iconUrl`**    | <code>string</code>                             | Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`), an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. Omit it to get MapKit's native default pin. |
-| **`iconSize`**   | <code>{ width: number; height: number; }</code> | Logical size in points.                                                                                                                                                                  |
+| Prop             | Type                                            | Description                                                                                                                                                                                                                                                                                    |
+| ---------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |                                                                                                                                                                                                                                                                                                |
+| **`title`**      | <code>string</code>                             |                                                                                                                                                                                                                                                                                                |
+| **`snippet`**    | <code>string</code>                             | Secondary line shown under `title` in the native callout (see `showInfoWindows`).                                                                                                                                                                                                              |
+| **`iconUrl`**    | <code>string</code>                             | Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`), an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. Omit it to get MapKit's native default pin.                                                                                                       |
+| **`iconSize`**   | <code>{ width: number; height: number; }</code> | Logical size in points.                                                                                                                                                                                                                                                                        |
+| **`markerId`**   | <code>string</code>                             | Caller-supplied stable id. When set it is used verbatim (and echoed back from {@link CapacitorAppleMapsPlugin.addMarkers} and on tap) instead of a generated one, so the host can map pins back to its own domain objects and target them with {@link CapacitorAppleMapsPlugin.updateMarkers}. |
+
+
+#### MarkerUpdate
+
+A partial change to an existing marker, addressed by its `markerId`. Omitted
+fields are left as-is; a moved marker animates to its new coordinate.
+
+| Prop             | Type                                            |
+| ---------------- | ----------------------------------------------- |
+| **`markerId`**   | <code>string</code>                             |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |
+| **`title`**      | <code>string</code>                             |
+| **`snippet`**    | <code>string</code>                             |
+| **`iconUrl`**    | <code>string</code>                             |
+| **`iconSize`**   | <code>{ width: number; height: number; }</code> |
+
+
+#### Polyline
+
+Shared stroke/fill styling for overlays. Colors are `#RRGGBB` or `#RRGGBBAA` hex.
+
+| Prop                | Type                  | Description                                                        |
+| ------------------- | --------------------- | ------------------------------------------------------------------ |
+| **`path`**          | <code>LatLng[]</code> |                                                                    |
+| **`strokeColor`**   | <code>string</code>   | Line color hex. Defaults to the system blue.                       |
+| **`strokeWeight`**  | <code>number</code>   | Line width in points. Defaults to `3`.                             |
+| **`strokeOpacity`** | <code>number</code>   | Line opacity `0..1`, applied on top of any alpha in `strokeColor`. |
+
+
+#### Polygon
+
+| Prop                | Type                                | Description                                                                                                  |
+| ------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **`paths`**         | <code>LatLng[] \| LatLng[][]</code> | Either a single ring of points, or an array of rings where the first is the exterior and the rest are holes. |
+| **`strokeColor`**   | <code>string</code>                 |                                                                                                              |
+| **`strokeWeight`**  | <code>number</code>                 |                                                                                                              |
+| **`strokeOpacity`** | <code>number</code>                 |                                                                                                              |
+| **`fillColor`**     | <code>string</code>                 | Fill color hex. Unfilled if omitted.                                                                         |
+| **`fillOpacity`**   | <code>number</code>                 |                                                                                                              |
+
+
+#### Circle
+
+| Prop                | Type                                      | Description       |
+| ------------------- | ----------------------------------------- | ----------------- |
+| **`center`**        | <code><a href="#latlng">LatLng</a></code> |                   |
+| **`radius`**        | <code>number</code>                       | Radius in meters. |
+| **`strokeColor`**   | <code>string</code>                       |                   |
+| **`strokeWeight`**  | <code>number</code>                       |                   |
+| **`strokeOpacity`** | <code>number</code>                       |                   |
+| **`fillColor`**     | <code>string</code>                       |                   |
+| **`fillOpacity`**   | <code>number</code>                       |                   |
+
 
 #### SearchCompletion
 
@@ -430,6 +723,7 @@ One type-ahead suggestion from `searchAutocomplete`.
 | **`id`**       | <code>string</code> | Opaque id to pass to `searchResolve`.              |
 | **`title`**    | <code>string</code> | Primary line, e.g. a street address or place name. |
 | **`subtitle`** | <code>string</code> | Secondary line, e.g. the city/region.              |
+
 
 #### SearchRegion
 
@@ -443,6 +737,7 @@ favour the area in view. Deltas default to 1° if omitted.
 | **`latitudeDelta`**  | <code>number</code> |
 | **`longitudeDelta`** | <code>number</code> |
 
+
 #### SearchResult
 
 One coordinate-bearing result from `searchPlaces`.
@@ -455,6 +750,7 @@ One coordinate-bearing result from `searchPlaces`.
 | **`latitude`**  | <code>number</code> |                                                                         |
 | **`longitude`** | <code>number</code> |                                                                         |
 
+
 #### MapBounds
 
 The rectangle the native map should occupy, in CSS pixels.
@@ -466,11 +762,13 @@ The rectangle the native map should occupy, in CSS pixels.
 | **`width`**  | <code>number</code> |
 | **`height`** | <code>number</code> |
 
+
 #### PluginListenerHandle
 
 | Prop         | Type                                      |
 | ------------ | ----------------------------------------- |
 | **`remove`** | <code>() =&gt; Promise&lt;void&gt;</code> |
+
 
 #### CameraIdleCallbackData
 
@@ -482,6 +780,7 @@ The rectangle the native map should occupy, in CSS pixels.
 | **`zoom`**      | <code>number</code>                                   |
 | **`bounds`**    | <code><a href="#latlngbounds">LatLngBounds</a></code> |
 
+
 #### MarkerClickCallbackData
 
 | Prop            | Type                |
@@ -492,11 +791,52 @@ The rectangle the native map should occupy, in CSS pixels.
 | **`longitude`** | <code>number</code> |
 | **`title`**     | <code>string</code> |
 
+
 #### MapReadyCallbackData
 
 | Prop        | Type                |
 | ----------- | ------------------- |
 | **`mapId`** | <code>string</code> |
+
+
+#### MapClickCallbackData
+
+| Prop            | Type                |
+| --------------- | ------------------- |
+| **`mapId`**     | <code>string</code> |
+| **`latitude`**  | <code>number</code> |
+| **`longitude`** | <code>number</code> |
+
+
+#### ClusterClickCallbackData
+
+A tap on a cluster bubble. Carries the members it groups.
+
+| Prop            | Type                  | Description                               |
+| --------------- | --------------------- | ----------------------------------------- |
+| **`mapId`**     | <code>string</code>   |                                           |
+| **`latitude`**  | <code>number</code>   |                                           |
+| **`longitude`** | <code>number</code>   |                                           |
+| **`count`**     | <code>number</code>   | Number of markers in the cluster.         |
+| **`markerIds`** | <code>string[]</code> | The `markerId`s of the clustered markers. |
+
+
+### Type Aliases
+
+
+#### MapType
+
+Base map imagery. Maps to `MKMapType`; the `*Flyover` variants render 3D
+satellite imagery where Apple has it. Defaults to `standard`.
+
+<code>'standard' | 'satellite' | 'hybrid' | 'satelliteFlyover' | 'hybridFlyover' | 'mutedStandard'</code>
+
+
+#### MapLongClickCallbackData
+
+A long-press on the map surface (not on a marker).
+
+<code><a href="#mapclickcallbackdata">MapClickCallbackData</a></code>
 
 </docgen-api>
 

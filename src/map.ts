@@ -5,10 +5,19 @@ import type {
   AppleMapConfig,
   CameraConfig,
   CameraIdleCallbackData,
+  CameraPosition,
+  Circle,
+  ClusterClickCallbackData,
   LatLngBounds,
+  MapClickCallbackData,
+  MapLongClickCallbackData,
   MapReadyCallbackData,
+  MapType,
   Marker,
   MarkerClickCallbackData,
+  MarkerUpdate,
+  Polygon,
+  Polyline,
 } from './definitions';
 import { CapacitorAppleMaps } from './implementation';
 
@@ -58,6 +67,9 @@ export class AppleMap {
 
   private onCameraIdleListener?: PluginListenerHandle;
   private onMarkerClickListener?: PluginListenerHandle;
+  private onMapClickListener?: PluginListenerHandle;
+  private onMapLongClickListener?: PluginListenerHandle;
+  private onClusterClickListener?: PluginListenerHandle;
 
   private constructor(id: string) {
     this.id = id;
@@ -211,9 +223,27 @@ export class AppleMap {
     return CapacitorAppleMaps.getMapBounds({ id: this.id });
   }
 
+  /** Read the current camera as `{ latitude, longitude, zoom, bounds }`. */
+  async getCameraPosition(): Promise<CameraPosition> {
+    return CapacitorAppleMaps.getCameraPosition({ id: this.id });
+  }
+
+  /**
+   * Move the camera to fit `bounds`, insetting by `padding` points on each side
+   * (default `0`). Handy after {@link addMarkers} to frame every pin.
+   */
+  async fitBounds(bounds: LatLngBounds, padding?: number, animate = true): Promise<void> {
+    return CapacitorAppleMaps.fitBounds({ id: this.id, bounds, padding, animate });
+  }
+
   async addMarkers(markers: Marker[]): Promise<string[]> {
     const res = await CapacitorAppleMaps.addMarkers({ id: this.id, markers });
     return res.ids;
+  }
+
+  /** Apply partial changes to existing markers, addressed by `markerId`. */
+  async updateMarkers(markers: MarkerUpdate[]): Promise<void> {
+    return CapacitorAppleMaps.updateMarkers({ id: this.id, markers });
   }
 
   async removeMarkers(ids: string[]): Promise<void> {
@@ -226,6 +256,39 @@ export class AppleMap {
 
   async disableClustering(): Promise<void> {
     return CapacitorAppleMaps.disableClustering({ id: this.id });
+  }
+
+  async addPolylines(polylines: Polyline[]): Promise<string[]> {
+    const res = await CapacitorAppleMaps.addPolylines({ id: this.id, polylines });
+    return res.ids;
+  }
+
+  async addPolygons(polygons: Polygon[]): Promise<string[]> {
+    const res = await CapacitorAppleMaps.addPolygons({ id: this.id, polygons });
+    return res.ids;
+  }
+
+  async addCircles(circles: Circle[]): Promise<string[]> {
+    const res = await CapacitorAppleMaps.addCircles({ id: this.id, circles });
+    return res.ids;
+  }
+
+  /** Remove overlays (polylines, polygons, or circles) by the ids their add call returned. */
+  async removeOverlays(ids: string[]): Promise<void> {
+    return CapacitorAppleMaps.removeOverlays({ id: this.id, ids });
+  }
+
+  async setMapType(mapType: MapType): Promise<void> {
+    return CapacitorAppleMaps.setMapType({ id: this.id, mapType });
+  }
+
+  /**
+   * Show or hide the blue user-location dot. Requires the host app to declare
+   * `NSLocationWhenInUseUsageDescription` and to have obtained location
+   * permission; MapKit shows nothing otherwise.
+   */
+  async enableCurrentLocation(enabled: boolean): Promise<void> {
+    return CapacitorAppleMaps.enableCurrentLocation({ id: this.id, enabled });
   }
 
   async setOnCameraIdleListener(callback?: (data: CameraIdleCallbackData) => void): Promise<void> {
@@ -252,6 +315,42 @@ export class AppleMap {
     }
   }
 
+  async setOnMapClickListener(callback?: (data: MapClickCallbackData) => void): Promise<void> {
+    if (this.onMapClickListener) {
+      await this.onMapClickListener.remove();
+      this.onMapClickListener = undefined;
+    }
+    if (callback) {
+      this.onMapClickListener = await CapacitorAppleMaps.addListener('onMapClick', (data) => {
+        if (data.mapId === this.id) callback(data);
+      });
+    }
+  }
+
+  async setOnMapLongClickListener(callback?: (data: MapLongClickCallbackData) => void): Promise<void> {
+    if (this.onMapLongClickListener) {
+      await this.onMapLongClickListener.remove();
+      this.onMapLongClickListener = undefined;
+    }
+    if (callback) {
+      this.onMapLongClickListener = await CapacitorAppleMaps.addListener('onMapLongClick', (data) => {
+        if (data.mapId === this.id) callback(data);
+      });
+    }
+  }
+
+  async setOnClusterClickListener(callback?: (data: ClusterClickCallbackData) => void): Promise<void> {
+    if (this.onClusterClickListener) {
+      await this.onClusterClickListener.remove();
+      this.onClusterClickListener = undefined;
+    }
+    if (callback) {
+      this.onClusterClickListener = await CapacitorAppleMaps.addListener('onClusterClick', (data) => {
+        if (data.mapId === this.id) callback(data);
+      });
+    }
+  }
+
   async setOnMapReadyListener(callback?: (data: MapReadyCallbackData) => void): Promise<void> {
     if (callback) {
       const handle = await CapacitorAppleMaps.addListener('onMapReady', (data) => {
@@ -271,8 +370,14 @@ export class AppleMap {
     this.resizeObserver = null;
     await this.onCameraIdleListener?.remove();
     await this.onMarkerClickListener?.remove();
+    await this.onMapClickListener?.remove();
+    await this.onMapLongClickListener?.remove();
+    await this.onClusterClickListener?.remove();
     this.onCameraIdleListener = undefined;
     this.onMarkerClickListener = undefined;
+    this.onMapClickListener = undefined;
+    this.onMapLongClickListener = undefined;
+    this.onClusterClickListener = undefined;
     return CapacitorAppleMaps.destroy({ id: this.id });
   }
 }

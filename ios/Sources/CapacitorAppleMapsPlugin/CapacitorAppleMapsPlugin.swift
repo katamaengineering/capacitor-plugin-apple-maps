@@ -16,10 +16,19 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         CAPPluginMethod(name: "destroy", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setCamera", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getMapBounds", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getCameraPosition", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "fitBounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "addMarkers", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "updateMarkers", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "removeMarkers", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "enableClustering", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "disableClustering", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "addPolylines", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "addPolygons", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "addCircles", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "removeOverlays", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setMapType", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "enableCurrentLocation", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchAutocomplete", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchPlaces", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchResolve", returnType: CAPPluginReturnPromise),
@@ -35,7 +44,7 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
     private let markerReuseId = "appleMapMarker"
     private let markerDefaultReuseId = "appleMapMarkerDefault"
 
-    private var maps = [String: Map]()
+    var maps = [String: Map]()
     private let searchService = SearchService()
 
     // MARK: - App lifecycle
@@ -134,6 +143,39 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         }
     }
 
+    @objc func getCameraPosition(_ call: CAPPluginCall) {
+        guard let id = call.getString("id"), let map = maps[id] else {
+            call.reject("map not found")
+            return
+        }
+        DispatchQueue.main.sync {
+            call.resolve(map.cameraPayload())
+        }
+    }
+
+    @objc func fitBounds(_ call: CAPPluginCall) {
+        guard let id = call.getString("id"), let map = maps[id] else {
+            call.reject("map not found")
+            return
+        }
+        guard let boundsObj = call.getObject("bounds"),
+              let swObj = boundsObj["southwest"] as? JSObject,
+              let swLat = swObj["lat"] as? Double, let swLng = swObj["lng"] as? Double,
+              let neObj = boundsObj["northeast"] as? JSObject,
+              let neLat = neObj["lat"] as? Double, let neLng = neObj["lng"] as? Double else {
+            call.reject("bounds with southwest and northeast is required")
+            return
+        }
+        let padding = call.getDouble("padding") ?? 0
+        let animate = call.getBool("animate", true)
+        map.fitBounds(
+            southwest: CLLocationCoordinate2D(latitude: swLat, longitude: swLng),
+            northeast: CLLocationCoordinate2D(latitude: neLat, longitude: neLng),
+            padding: padding, animate: animate
+        )
+        call.resolve()
+    }
+
     // MARK: - Markers
 
     @objc func addMarkers(_ call: CAPPluginCall) {
@@ -147,6 +189,19 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         }
         let ids = map.addMarkers(markerObjs)
         call.resolve(["ids": ids])
+    }
+
+    @objc func updateMarkers(_ call: CAPPluginCall) {
+        guard let id = call.getString("id"), let map = maps[id] else {
+            call.reject("map not found")
+            return
+        }
+        guard let markerObjs = call.getArray("markers") as? [JSObject] else {
+            call.reject("markers array is required")
+            return
+        }
+        map.updateMarkers(markerObjs)
+        call.resolve()
     }
 
     @objc func removeMarkers(_ call: CAPPluginCall) {
@@ -194,40 +249,6 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         searchService.resolve(call)
     }
 
-    // MARK: - Frame syncing
-
-    @objc func onResize(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        guard let boundsObj = call.getObject("mapBounds") else {
-            call.reject("mapBounds is required")
-            return
-        }
-        map.updateRender(mapBounds: CGRect.fromJSObject(boundsObj))
-        call.resolve()
-    }
-
-    @objc func onDisplay(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        guard let boundsObj = call.getObject("mapBounds") else {
-            call.reject("mapBounds is required")
-            return
-        }
-        map.rebindTargetContainer(mapBounds: CGRect.fromJSObject(boundsObj))
-        call.resolve()
-    }
-
-    @objc func onScroll(_ call: CAPPluginCall) {
-        // The native map is a subview inside the webview's own scroll view on
-        // iOS, so it tracks page scrolling automatically. Nothing to do.
-        call.resolve()
-    }
-
     // MARK: - MKMapViewDelegate
 
     public func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
@@ -241,6 +262,11 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
             // The user zoomed out past the floor; bounce back to it.
             map.isAdjustingRegion = true
             map.setCameraInternal(coordinate: mapView.centerCoordinate, zoom: minZoom, animate: true)
+            return
+        } else if let maxZoom = map.config.maxZoom, map.currentZoom() > maxZoom + 0.01 {
+            // The user zoomed in past the ceiling; bounce back to it.
+            map.isAdjustingRegion = true
+            map.setCameraInternal(coordinate: mapView.centerCoordinate, zoom: maxZoom, animate: true)
             return
         }
 
@@ -284,7 +310,9 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
                 ?? MKMarkerAnnotationView(annotation: marker, reuseIdentifier: markerDefaultReuseId)
         }
         view.annotation = marker
-        view.canShowCallout = false
+        // Native callout (info window) when the map opted in and the marker has a
+        // title; otherwise tap-only, matching the plugin's original behavior.
+        view.canShowCallout = map.config.showInfoWindows && !(marker.title?.isEmpty ?? true)
         view.clusteringIdentifier = map.clusteringEnabled ? clusterReuseId : nil
         view.displayPriority = .required
 
@@ -304,8 +332,15 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         guard let map = findMap(for: mapView) else { return }
 
         if let cluster = view.annotation as? MKClusterAnnotation {
-            // Expand the cluster by zooming to fit its members.
             mapView.deselectAnnotation(cluster, animated: false)
+            notifyListeners("onClusterClick", data: [
+                "mapId": map.id,
+                "latitude": cluster.coordinate.latitude,
+                "longitude": cluster.coordinate.longitude,
+                "count": cluster.memberAnnotations.count,
+                "markerIds": cluster.memberAnnotations.compactMap { ($0 as? AppleMapMarker)?.markerId }
+            ])
+            // Expand the cluster by zooming to fit its members.
             var rect = MKMapRect.null
             for member in cluster.memberAnnotations {
                 let point = MKMapPoint(member.coordinate)
@@ -317,8 +352,6 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         }
 
         guard let marker = view.annotation as? AppleMapMarker else { return }
-        // Deselect immediately so the same pin can be tapped again.
-        mapView.deselectAnnotation(marker, animated: false)
         notifyListeners("onMarkerClick", data: [
             "mapId": map.id,
             "markerId": marker.markerId,
@@ -326,11 +359,16 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
             "longitude": marker.coordinate.longitude,
             "title": marker.title ?? ""
         ])
+        // With no callout to show, deselect immediately so the same pin can be
+        // tapped again. With a callout, leave it selected so MapKit shows it.
+        if !view.canShowCallout {
+            mapView.deselectAnnotation(marker, animated: false)
+        }
     }
 
     // MARK: - Helpers
 
-    private func findMap(for mapView: MKMapView) -> Map? {
+    func findMap(for mapView: MKMapView) -> Map? {
         for (_, map) in maps where map.mapView === mapView {
             return map
         }
