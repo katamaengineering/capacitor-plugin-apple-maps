@@ -29,6 +29,15 @@
       // clustered with the others. Both plugins accept the `draggable` field.
       draggable: true,
     },
+    {
+      // A standalone pin, placed well south of the SF trio so it never clusters
+      // (a lone pin always renders individually) — tap it and its info window
+      // (native callout) pops up. Requires `showInfoWindows: true` on the map.
+      markerId: 'info-demo',
+      coordinate: { lat: 37.6213, lng: -122.379 },
+      title: 'Tap me',
+      snippet: 'This is an info window',
+    },
   ];
 
   let element = $state<HTMLElement>();
@@ -189,6 +198,20 @@
       await am.updateMarkers([{ markerId: 'wharf', draggable: true }]);
       return 'wharf drag-and-drop ready';
     });
+
+    await step('gestures + padding', async () => {
+      // Disable rotate/pitch, keep pan+zoom, and inset the map so the controls
+      // clear the header; then restore full gestures.
+      await am.setGestures({ rotate: false, pitch: false });
+      await am.setPadding({ top: 8, left: 8, right: 8, bottom: 8 });
+      await am.setGestures({ scroll: true, zoom: true, rotate: true, pitch: true });
+      return 'ok';
+    });
+
+    await step('takeSnapshot', async () => {
+      const image = await am.takeSnapshot();
+      return image.startsWith('data:image/png;base64,') ? `${Math.round(image.length / 1024)} KB` : 'unexpected';
+    });
   }
 
   // ── iOS control-bar actions ──────────────────────────────────────────────
@@ -280,6 +303,9 @@
         // Report every gesture through the single `note` string.
         await appleMap.setOnMarkerClickListener((data) => {
           note = `tapped ${data.title || data.markerId}`;
+        });
+        await appleMap.setOnInfoWindowClickListener((data) => {
+          note = `info window tapped: ${data.title || data.markerId}`;
         });
         await appleMap.setOnMapClickListener((data) => {
           note = `map click @ ${data.latitude.toFixed(3)},${data.longitude.toFixed(3)}`;

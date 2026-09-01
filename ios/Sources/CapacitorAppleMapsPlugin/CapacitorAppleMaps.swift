@@ -2,6 +2,7 @@ import Foundation
 import MapKit
 import Capacitor
 import WebKit
+import UIKit
 
 // MARK: - Errors
 
@@ -116,6 +117,11 @@ struct AppleMapConfig {
     let showsCompass: Bool
     let showsScale: Bool
     let colorScheme: String
+    let scrollEnabled: Bool
+    let zoomEnabled: Bool
+    let rotateEnabled: Bool
+    let pitchEnabled: Bool
+    let padding: UIEdgeInsets
 
     init(fromJSObject obj: JSObject) throws {
         guard let centerObj = obj["center"] as? JSObject,
@@ -140,6 +146,12 @@ struct AppleMapConfig {
         self.showsCompass = obj["showsCompass"] as? Bool ?? true
         self.showsScale = obj["showsScale"] as? Bool ?? false
         self.colorScheme = obj["colorScheme"] as? String ?? "default"
+        let gestures = obj["gestures"] as? JSObject ?? [:]
+        self.scrollEnabled = gestures["scroll"] as? Bool ?? true
+        self.zoomEnabled = gestures["zoom"] as? Bool ?? true
+        self.rotateEnabled = gestures["rotate"] as? Bool ?? true
+        self.pitchEnabled = gestures["pitch"] as? Bool ?? true
+        self.padding = AppleMapConfig.parsePadding(obj["padding"])
     }
 }
 
@@ -150,6 +162,10 @@ struct AppleMapConfig {
 /// `@capacitor/google-maps`.
 public class Map: NSObject, UIGestureRecognizerDelegate {
     static let mapTag = 99999
+    /// Name given to the marker-drag long-press recognizer, so the gesture
+    /// delegate can let it receive touches on a marker while the map-surface
+    /// recognizers decline them (letting MapKit select the pin / show its callout).
+    static let markerDragGestureName = "capacitorAppleMapMarkerDrag"
 
     let id: String
     var config: AppleMapConfig
@@ -166,12 +182,27 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
     /// back to the minimum zoom inside `regionDidChange`.
     var isAdjustingRegion = false
 
+    /// The custom info-window bubble currently shown (a plain subview of the map,
+    /// since MapKit's own callout doesn't render when the map is composited inside
+    /// the web view), the marker it points at, and a display link that keeps it
+    /// glued to the pin as the map pans/zooms. See Callout.swift.
+    var calloutView: UIView?
+    var calloutMarker: AppleMapMarker?
+    var calloutDisplayLink: CADisplayLink?
+
     /// The marker currently being dragged (via the map's long-press recognizer),
     /// or nil when no drag is in progress.
     var draggingMarker: AppleMapMarker?
     /// The map's `isScrollEnabled` value before a drag disabled it, restored when
     /// the drag ends.
     var scrollWasEnabledBeforeDrag = true
+
+    /// Edge insets from `setPadding`, added to the `fitBounds` framing so it
+    /// respects the padding the caller asked for.
+    var contentInsets: UIEdgeInsets = .zero
+
+    /// Retains the in-flight `MKMapSnapshotter` for the duration of `takeSnapshot`.
+    var pendingSnapshotter: MKMapSnapshotter?
 
     weak var delegate: CapacitorAppleMapsPlugin?
     var targetView: UIView?
@@ -209,6 +240,12 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
             self.mapView.showsUserLocation = false
             self.mapView.mapType = Map.mapType(from: self.config.mapType)
             self.applyAppearance(self.config)
+            self.mapView.isScrollEnabled = self.config.scrollEnabled
+            self.mapView.isZoomEnabled = self.config.zoomEnabled
+            self.mapView.isRotateEnabled = self.config.rotateEnabled
+            self.mapView.isPitchEnabled = self.config.pitchEnabled
+            self.mapView.layoutMargins = self.config.padding
+            self.contentInsets = self.config.padding
             self.mapView.frame = CGRect(x: self.config.x, y: self.config.y, width: self.config.width, height: self.config.height)
             self.setCameraInternal(coordinate: self.config.center, zoom: self.config.zoom, animate: false)
 
@@ -232,6 +269,7 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
             // recognizer above.
             let markerDrag = UILongPressGestureRecognizer(target: self, action: #selector(self.handleMarkerDrag(_:)))
             markerDrag.cancelsTouchesInView = false
+            markerDrag.name = Map.markerDragGestureName
             markerDrag.delegate = self
             self.mapView.addGestureRecognizer(markerDrag)
 
@@ -250,6 +288,7 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
 
     func destroy() {
         DispatchQueue.main.async {
+            self.dismissCallout()
             self.mapView.removeFromSuperview()
             self.mapView.delegate = nil
             self.targetView?.tag = 0
@@ -311,8 +350,14 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
     /// Frame `southwest`..`northeast` in the viewport, inset by `padding` points.
     func fitBounds(southwest: CLLocationCoordinate2D, northeast: CLLocationCoordinate2D, padding: Double, animate: Bool) {
         let rect = boundingMapRect(southwest: southwest, northeast: northeast)
-        DispatchQueue.main.sync {
-            let inset = UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
+        runOnMainSync {
+            // Combine the per-call padding with any standing content insets (setPadding).
+            let inset = UIEdgeInsets(
+                top: padding + self.contentInsets.top,
+                left: padding + self.contentInsets.left,
+                bottom: padding + self.contentInsets.bottom,
+                right: padding + self.contentInsets.right
+            )
             self.mapView.setVisibleMapRect(rect, edgePadding: inset, animated: animate)
         }
     }
@@ -321,7 +366,7 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
 
     func addMarkers(_ markerObjs: [JSObject]) -> [String] {
         var ids: [String] = []
-        DispatchQueue.main.sync {
+        runOnMainSync {
             var toAdd: [AppleMapMarker] = []
             for obj in markerObjs {
                 guard let marker = Map.makeMarker(from: obj) else { continue }
@@ -358,7 +403,7 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
     }
 
     func removeMarkers(_ ids: [String]) {
-        DispatchQueue.main.sync {
+        runOnMainSync {
             var toRemove: [AppleMapMarker] = []
             for id in ids {
                 if let marker = self.markers[id] {
@@ -373,7 +418,7 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
     /// Apply partial changes to existing markers. A moved marker animates to its
     /// new coordinate; an icon change re-adds the annotation so `viewFor` reruns.
     func updateMarkers(_ objs: [JSObject]) {
-        DispatchQueue.main.sync {
+        runOnMainSync {
             var toRefresh: [AppleMapMarker] = []
             for obj in objs {
                 guard let markerId = obj["markerId"] as? String,
@@ -418,7 +463,7 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
     }
 
     func enableClustering() {
-        DispatchQueue.main.sync {
+        runOnMainSync {
             guard !self.clusteringEnabled else { return }
             self.clusteringEnabled = true
             self.refreshAnnotations()
@@ -426,7 +471,7 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
     }
 
     func disableClustering() {
-        DispatchQueue.main.sync {
+        runOnMainSync {
             guard self.clusteringEnabled else { return }
             self.clusteringEnabled = false
             self.refreshAnnotations()

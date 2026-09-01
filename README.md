@@ -120,6 +120,9 @@ const map =
 * [`setCompassEnabled(...)`](#setcompassenabled)
 * [`setScaleEnabled(...)`](#setscaleenabled)
 * [`setColorScheme(...)`](#setcolorscheme)
+* [`setGestures(...)`](#setgestures)
+* [`setPadding(...)`](#setpadding)
+* [`takeSnapshot(...)`](#takesnapshot)
 * [`searchAutocomplete(...)`](#searchautocomplete)
 * [`searchPlaces(...)`](#searchplaces)
 * [`searchResolve(...)`](#searchresolve)
@@ -128,6 +131,7 @@ const map =
 * [`onScroll(...)`](#onscroll)
 * [`addListener('onCameraIdle', ...)`](#addlisteneroncameraidle-)
 * [`addListener('onMarkerClick', ...)`](#addlisteneronmarkerclick-)
+* [`addListener('onInfoWindowClick', ...)`](#addlisteneroninfowindowclick-)
 * [`addListener('onMapReady', ...)`](#addlisteneronmapready-)
 * [`addListener('onMapClick', ...)`](#addlisteneronmapclick-)
 * [`addListener('onMapLongClick', ...)`](#addlisteneronmaplongclick-)
@@ -502,6 +506,54 @@ Force a light/dark appearance, or `default` to follow the device setting.
 --------------------
 
 
+### setGestures(...)
+
+```typescript
+setGestures(options: { id: string; gestures: MapGestures; }) => Promise<void>
+```
+
+Enable or disable user gestures (only the fields you pass are changed).
+
+| Param         | Type                                                                           |
+| ------------- | ------------------------------------------------------------------------------ |
+| **`options`** | <code>{ id: string; gestures: <a href="#mapgestures">MapGestures</a>; }</code> |
+
+--------------------
+
+
+### setPadding(...)
+
+```typescript
+setPadding(options: { id: string; padding: MapPadding; }) => Promise<void>
+```
+
+Inset the map's edges (shifts controls inward and pads `fitBounds`).
+
+| Param         | Type                                                                        |
+| ------------- | --------------------------------------------------------------------------- |
+| **`options`** | <code>{ id: string; padding: <a href="#mappadding">MapPadding</a>; }</code> |
+
+--------------------
+
+
+### takeSnapshot(...)
+
+```typescript
+takeSnapshot(options: { id: string; }) => Promise<{ image: string; }>
+```
+
+Render the current map view to a PNG, returned as a `data:` URL - the visible
+base map with the marker pins and overlays composited on top.
+
+| Param         | Type                         |
+| ------------- | ---------------------------- |
+| **`options`** | <code>{ id: string; }</code> |
+
+**Returns:** <code>Promise&lt;{ image: string; }&gt;</code>
+
+--------------------
+
+
 ### searchAutocomplete(...)
 
 ```typescript
@@ -629,6 +681,22 @@ addListener(eventName: 'onMarkerClick', listenerFunc: (data: MarkerClickCallback
 | Param              | Type                                                                                           |
 | ------------------ | ---------------------------------------------------------------------------------------------- |
 | **`eventName`**    | <code>'onMarkerClick'</code>                                                                   |
+| **`listenerFunc`** | <code>(data: <a href="#markerclickcallbackdata">MarkerClickCallbackData</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
+### addListener('onInfoWindowClick', ...)
+
+```typescript
+addListener(eventName: 'onInfoWindowClick', listenerFunc: (data: MarkerClickCallbackData) => void) => Promise<PluginListenerHandle>
+```
+
+| Param              | Type                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| **`eventName`**    | <code>'onInfoWindowClick'</code>                                                               |
 | **`listenerFunc`** | <code>(data: <a href="#markerclickcallbackdata">MarkerClickCallbackData</a>) =&gt; void</code> |
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
@@ -773,25 +841,27 @@ Initial map configuration. The `width`/`height`/`x`/`y`/`devicePixelRatio`
 fields are populated by the {@link AppleMap} wrapper from the bound element's
 bounding rectangle - callers do not set them.
 
-| Prop                        | Type                                                      | Description                                                                                                                                                                                                                                                                      |
-| --------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`center`**                | <code><a href="#latlng">LatLng</a></code>                 |                                                                                                                                                                                                                                                                                  |
-| **`zoom`**                  | <code>number</code>                                       | Google-style zoom (0 = whole world). Converted to an MKCoordinateRegion span natively.                                                                                                                                                                                           |
-| **`minZoom`**               | <code>number</code>                                       | Hard zoom-out floor. Programmatic and gesture moves are clamped to this.                                                                                                                                                                                                         |
-| **`maxZoom`**               | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
-| **`clustering`**            | <code>boolean</code>                                      | Start with clustering enabled, so markers added later cluster on their first render instead of briefly appearing as individual pins. Equivalent to calling {@link AppleMap.enableClustering} before any {@link AppleMap.addMarkers}, but without the flash. Defaults to `false`. |
-| **`mapType`**               | <code><a href="#maptype">MapType</a></code>               | Base map imagery. Defaults to `standard`.                                                                                                                                                                                                                                        |
-| **`showInfoWindows`**       | <code>boolean</code>                                      | Show MapKit's native callout bubble (title + optional snippet) when a marker with a `title` is tapped. Defaults to `false`, which preserves the tap-only behavior (`onMarkerClick` fires and the pin deselects immediately).                                                     |
-| **`showsTraffic`**          | <code>boolean</code>                                      | Overlay live traffic conditions (`MKMapView.showsTraffic`). Defaults to `false`.                                                                                                                                                                                                 |
-| **`showsPointsOfInterest`** | <code>boolean</code>                                      | Show Apple's points of interest (shops, parks, …). Maps to a `MKPointOfInterestFilter` of `.includingAll` / `.excludingAll`. Defaults to `true` (MapKit's default).                                                                                                              |
-| **`showsCompass`**          | <code>boolean</code>                                      | Show the compass when the map is rotated (`MKMapView.showsCompass`). Defaults to `true`.                                                                                                                                                                                         |
-| **`showsScale`**            | <code>boolean</code>                                      | Show the scale bar while zooming (`MKMapView.showsScale`). Defaults to `false`.                                                                                                                                                                                                  |
-| **`colorScheme`**           | <code><a href="#mapcolorscheme">MapColorScheme</a></code> | Force a light/dark appearance regardless of the device setting. Defaults to `default` (follow system).                                                                                                                                                                           |
-| **`width`**                 | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
-| **`height`**                | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
-| **`x`**                     | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
-| **`y`**                     | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
-| **`devicePixelRatio`**      | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
+| Prop                        | Type                                                      | Description                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`center`**                | <code><a href="#latlng">LatLng</a></code>                 |                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **`zoom`**                  | <code>number</code>                                       | Google-style zoom (0 = whole world). Converted to an MKCoordinateRegion span natively.                                                                                                                                                                                                                                                                                                               |
+| **`minZoom`**               | <code>number</code>                                       | Hard zoom-out floor. Programmatic and gesture moves are clamped to this.                                                                                                                                                                                                                                                                                                                             |
+| **`maxZoom`**               | <code>number</code>                                       |                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **`clustering`**            | <code>boolean</code>                                      | Start with clustering enabled, so markers added later cluster on their first render instead of briefly appearing as individual pins. Equivalent to calling {@link AppleMap.enableClustering} before any {@link AppleMap.addMarkers}, but without the flash. Defaults to `false`.                                                                                                                     |
+| **`mapType`**               | <code><a href="#maptype">MapType</a></code>               | Base map imagery. Defaults to `standard`.                                                                                                                                                                                                                                                                                                                                                            |
+| **`showInfoWindows`**       | <code>boolean</code>                                      | Show an info-window bubble (title + optional snippet) above a marker when it is tapped, closing when another marker or the map is tapped. Defaults to `false`, which preserves the tap-only behavior (`onMarkerClick` fires and no bubble appears). The bubble is drawn by the plugin rather than using MapKit's native callout, which does not render when the map is composited into the web view. |
+| **`showsTraffic`**          | <code>boolean</code>                                      | Overlay live traffic conditions (`MKMapView.showsTraffic`). Defaults to `false`.                                                                                                                                                                                                                                                                                                                     |
+| **`showsPointsOfInterest`** | <code>boolean</code>                                      | Show Apple's points of interest (shops, parks, …). Maps to a `MKPointOfInterestFilter` of `.includingAll` / `.excludingAll`. Defaults to `true` (MapKit's default).                                                                                                                                                                                                                                  |
+| **`showsCompass`**          | <code>boolean</code>                                      | Show the compass when the map is rotated (`MKMapView.showsCompass`). Defaults to `true`.                                                                                                                                                                                                                                                                                                             |
+| **`showsScale`**            | <code>boolean</code>                                      | Show the scale bar while zooming (`MKMapView.showsScale`). Defaults to `false`.                                                                                                                                                                                                                                                                                                                      |
+| **`colorScheme`**           | <code><a href="#mapcolorscheme">MapColorScheme</a></code> | Force a light/dark appearance regardless of the device setting. Defaults to `default` (follow system).                                                                                                                                                                                                                                                                                               |
+| **`gestures`**              | <code><a href="#mapgestures">MapGestures</a></code>       | Which user gestures are enabled. Each defaults to `true`.                                                                                                                                                                                                                                                                                                                                            |
+| **`padding`**               | <code><a href="#mappadding">MapPadding</a></code>         | Inset applied to the map's edges (controls + `fitBounds` framing).                                                                                                                                                                                                                                                                                                                                   |
+| **`width`**                 | <code>number</code>                                       |                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **`height`**                | <code>number</code>                                       |                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **`x`**                     | <code>number</code>                                       |                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **`y`**                     | <code>number</code>                                       |                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **`devicePixelRatio`**      | <code>number</code>                                       |                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 
 #### LatLng
@@ -803,6 +873,33 @@ two plugins can sit behind one abstraction in the host app.
 | --------- | ------------------- |
 | **`lat`** | <code>number</code> |
 | **`lng`** | <code>number</code> |
+
+
+#### MapGestures
+
+Which user gestures the map responds to. Omitted fields are left unchanged.
+All default to `true`.
+
+| Prop         | Type                 | Description                              |
+| ------------ | -------------------- | ---------------------------------------- |
+| **`scroll`** | <code>boolean</code> | Pan/scroll the map.                      |
+| **`zoom`**   | <code>boolean</code> | Pinch/double-tap to zoom.                |
+| **`rotate`** | <code>boolean</code> | Two-finger rotate.                       |
+| **`pitch`**  | <code>boolean</code> | Two-finger drag to tilt into 3D (pitch). |
+
+
+#### MapPadding
+
+Inset, in points, applied to the map's edges - it shifts MapKit's controls
+(compass, scale, legal link) inward and pads the frame used by `fitBounds`.
+Omitted sides default to `0`.
+
+| Prop         | Type                |
+| ------------ | ------------------- |
+| **`top`**    | <code>number</code> |
+| **`left`**   | <code>number</code> |
+| **`right`**  | <code>number</code> |
+| **`bottom`** | <code>number</code> |
 
 
 #### CameraConfig
@@ -843,7 +940,7 @@ The map's current camera, returned by {@link CapacitorAppleMapsPlugin.getCameraP
 | ---------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |                                                                                                                                                                                                                                                                                                |
 | **`title`**      | <code>string</code>                             |                                                                                                                                                                                                                                                                                                |
-| **`snippet`**    | <code>string</code>                             | Secondary line shown under `title` in the native callout (see `showInfoWindows`).                                                                                                                                                                                                              |
+| **`snippet`**    | <code>string</code>                             | Secondary line shown under `title` in the info-window bubble (see `showInfoWindows`).                                                                                                                                                                                                          |
 | **`iconUrl`**    | <code>string</code>                             | Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`), an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. Omit it to get MapKit's native default pin.                                                                                                       |
 | **`iconSize`**   | <code>{ width: number; height: number; }</code> | Logical size in points.                                                                                                                                                                                                                                                                        |
 | **`markerId`**   | <code>string</code>                             | Caller-supplied stable id. When set it is used verbatim (and echoed back from {@link CapacitorAppleMapsPlugin.addMarkers} and on tap) instead of a generated one, so the host can map pins back to its own domain objects and target them with {@link CapacitorAppleMapsPlugin.updateMarkers}. |

@@ -31,9 +31,12 @@ export interface AppleMapConfig {
   /** Base map imagery. Defaults to `standard`. */
   mapType?: MapType;
   /**
-   * Show MapKit's native callout bubble (title + optional snippet) when a marker
-   * with a `title` is tapped. Defaults to `false`, which preserves the
-   * tap-only behavior (`onMarkerClick` fires and the pin deselects immediately).
+   * Show an info-window bubble (title + optional snippet) above a marker when it
+   * is tapped, closing when another marker or the map is tapped. Defaults to
+   * `false`, which preserves the tap-only behavior (`onMarkerClick` fires and no
+   * bubble appears). The bubble is drawn by the plugin rather than using MapKit's
+   * native callout, which does not render when the map is composited into the web
+   * view.
    */
   showInfoWindows?: boolean;
   /** Overlay live traffic conditions (`MKMapView.showsTraffic`). Defaults to `false`. */
@@ -50,12 +53,43 @@ export interface AppleMapConfig {
   showsScale?: boolean;
   /** Force a light/dark appearance regardless of the device setting. Defaults to `default` (follow system). */
   colorScheme?: MapColorScheme;
+  /** Which user gestures are enabled. Each defaults to `true`. */
+  gestures?: MapGestures;
+  /** Inset applied to the map's edges (controls + `fitBounds` framing). */
+  padding?: MapPadding;
   // --- Populated by the wrapper, not by callers. ---
   width?: number;
   height?: number;
   x?: number;
   y?: number;
   devicePixelRatio?: number;
+}
+
+/**
+ * Which user gestures the map responds to. Omitted fields are left unchanged.
+ * All default to `true`.
+ */
+export interface MapGestures {
+  /** Pan/scroll the map. */
+  scroll?: boolean;
+  /** Pinch/double-tap to zoom. */
+  zoom?: boolean;
+  /** Two-finger rotate. */
+  rotate?: boolean;
+  /** Two-finger drag to tilt into 3D (pitch). */
+  pitch?: boolean;
+}
+
+/**
+ * Inset, in points, applied to the map's edges - it shifts MapKit's controls
+ * (compass, scale, legal link) inward and pads the frame used by `fitBounds`.
+ * Omitted sides default to `0`.
+ */
+export interface MapPadding {
+  top?: number;
+  left?: number;
+  right?: number;
+  bottom?: number;
 }
 
 export interface CameraConfig {
@@ -89,7 +123,7 @@ export type MapColorScheme = 'default' | 'light' | 'dark';
 export interface Marker {
   coordinate: LatLng;
   title?: string;
-  /** Secondary line shown under `title` in the native callout (see `showInfoWindows`). */
+  /** Secondary line shown under `title` in the info-window bubble (see `showInfoWindows`). */
   snippet?: string;
   /**
    * Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`),
@@ -328,6 +362,15 @@ export interface CapacitorAppleMapsPlugin {
   setScaleEnabled(options: { id: string; enabled: boolean }): Promise<void>;
   /** Force a light/dark appearance, or `default` to follow the device setting. */
   setColorScheme(options: { id: string; colorScheme: MapColorScheme }): Promise<void>;
+  /** Enable or disable user gestures (only the fields you pass are changed). */
+  setGestures(options: { id: string; gestures: MapGestures }): Promise<void>;
+  /** Inset the map's edges (shifts controls inward and pads `fitBounds`). */
+  setPadding(options: { id: string; padding: MapPadding }): Promise<void>;
+  /**
+   * Render the current map view to a PNG, returned as a `data:` URL - the visible
+   * base map with the marker pins and overlays composited on top.
+   */
+  takeSnapshot(options: { id: string }): Promise<{ image: string }>;
 
   /**
    * Type-ahead place autocomplete via `MKLocalSearchCompleter`. Needs no API
@@ -366,6 +409,10 @@ export interface CapacitorAppleMapsPlugin {
   ): Promise<PluginListenerHandle>;
   addListener(
     eventName: 'onMarkerClick',
+    listenerFunc: (data: MarkerClickCallbackData) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'onInfoWindowClick',
     listenerFunc: (data: MarkerClickCallbackData) => void,
   ): Promise<PluginListenerHandle>;
   addListener(

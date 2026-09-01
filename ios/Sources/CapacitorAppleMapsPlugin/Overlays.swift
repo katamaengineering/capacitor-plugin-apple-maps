@@ -14,7 +14,7 @@ extension Map {
 
     func addPolylines(_ objs: [JSObject]) -> [String] {
         var ids: [String] = []
-        DispatchQueue.main.sync {
+        runOnMainSync {
             for obj in objs {
                 let coords = Map.parseCoords(obj["path"])
                 guard coords.count >= 2 else { continue }
@@ -28,7 +28,7 @@ extension Map {
 
     func addPolygons(_ objs: [JSObject]) -> [String] {
         var ids: [String] = []
-        DispatchQueue.main.sync {
+        runOnMainSync {
             for obj in objs {
                 let rings = Map.parseRings(obj["paths"])
                 guard let exterior = rings.first, exterior.count >= 3 else { continue }
@@ -46,7 +46,7 @@ extension Map {
 
     func addCircles(_ objs: [JSObject]) -> [String] {
         var ids: [String] = []
-        DispatchQueue.main.sync {
+        runOnMainSync {
             for obj in objs {
                 guard let centerObj = obj["center"] as? JSObject,
                       let lat = centerObj["lat"] as? Double,
@@ -64,7 +64,7 @@ extension Map {
     }
 
     func removeOverlays(_ ids: [String]) {
-        DispatchQueue.main.sync {
+        runOnMainSync {
             for id in ids {
                 if let overlay = self.overlays.removeValue(forKey: id) {
                     self.mapView.removeOverlay(overlay)
@@ -84,58 +84,33 @@ extension Map {
         return id
     }
 
-    // MARK: Appearance / location
-
-    func setMapType(_ type: String) {
-        DispatchQueue.main.async { self.mapView.mapType = Map.mapType(from: type) }
-    }
-
-    func setCurrentLocation(_ enabled: Bool) {
-        DispatchQueue.main.async { self.mapView.showsUserLocation = enabled }
-    }
-
-    /// Apply the create-time appearance toggles from a config in one pass. Must
-    /// be called on the main thread (invoked from `render()`); the runtime
-    /// setters below each target a single property.
-    func applyAppearance(_ config: AppleMapConfig) {
-        mapView.showsTraffic = config.showsTraffic
-        mapView.pointOfInterestFilter = config.showsPointsOfInterest ? .includingAll : .excludingAll
-        mapView.showsCompass = config.showsCompass
-        mapView.showsScale = config.showsScale
-        mapView.overrideUserInterfaceStyle = Map.userInterfaceStyle(from: config.colorScheme)
-    }
-
-    func setTraffic(_ enabled: Bool) {
-        DispatchQueue.main.async { self.mapView.showsTraffic = enabled }
-    }
-
-    func setPointsOfInterest(_ enabled: Bool) {
-        DispatchQueue.main.async {
-            self.mapView.pointOfInterestFilter = enabled ? .includingAll : .excludingAll
-        }
-    }
-
-    func setCompass(_ enabled: Bool) {
-        DispatchQueue.main.async { self.mapView.showsCompass = enabled }
-    }
-
-    func setScale(_ enabled: Bool) {
-        DispatchQueue.main.async { self.mapView.showsScale = enabled }
-    }
-
-    func setColorScheme(_ scheme: String) {
-        DispatchQueue.main.async {
-            self.mapView.overrideUserInterfaceStyle = Map.userInterfaceStyle(from: scheme)
-        }
-    }
+    // Appearance / location / gestures / padding live in Appearance.swift.
 
     // MARK: Map tap
 
-    /// Emits `onMapClick` for taps on the map surface, ignoring taps that land on
-    /// an annotation (marker selection reports those via `didSelect`).
+    /// Emits `onMapClick` for taps on the map surface. Taps that land on a marker
+    /// never reach here (the gesture delegate declines them) so MapKit alone
+    /// selects the pin and shows its callout / info window; `onMarkerClick` fires
+    /// from `didSelect`.
     @objc func handleMapTap(_ gesture: UITapGestureRecognizer) {
         guard gesture.state == .ended else { return }
+        // A tap on the bare map closes any open info window.
+        dismissCallout()
         emitMapGesture("onMapClick", at: gesture.location(in: mapView))
+    }
+
+    /// The marker under `point`, if the point landed on one (any marker, draggable
+    /// or not); nil for the map surface or a cluster bubble.
+    private func markerAnnotation(at point: CGPoint) -> AppleMapMarker? {
+        var view = mapView.hitTest(point, with: nil)
+        while let current = view {
+            if let annotationView = current as? MKAnnotationView,
+               let marker = annotationView.annotation as? AppleMapMarker {
+                return marker
+            }
+            view = current.superview
+        }
+        return nil
     }
 
     /// Emits `onMapLongClick` for a long-press on the map surface. A long-press
@@ -168,6 +143,29 @@ extension Map {
         return true
     }
 
+    /// Decide which of our recognizers may claim a given touch. The marker-drag
+    /// recognizer wants touches only on a *draggable* pin. The tap and
+    /// map-long-press recognizers decline touches on *any* marker, so MapKit's own
+    /// selection runs and presents the pin's callout (info window) - relaying it
+    /// through our own tap recognizer raced with MapKit's and cancelled the
+    /// selection, so the callout never showed. Both still fire for the bare map
+    /// surface.
+    public func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldReceive touch: UITouch
+    ) -> Bool {
+        let marker = markerAnnotation(at: touch.location(in: mapView))
+        if gestureRecognizer.name == Map.markerDragGestureName {
+            return marker?.isDraggable ?? false
+        }
+        // A tap on the info-window bubble must not reach the map tap handler (which
+        // dismisses it); the bubble's own recognizer emits onInfoWindowClick.
+        if let callout = calloutView, touch.view?.isDescendant(of: callout) ?? false {
+            return false
+        }
+        return marker == nil
+    }
+
     // MARK: Marker drag
 
     /// Drives dragging of `draggable` markers. On `.began` a press that lands on a
@@ -196,19 +194,11 @@ extension Map {
         }
     }
 
-    /// The draggable marker under `point`, if any. Walks up from the hit-test view
-    /// to find an annotation view whose marker opted into dragging; returns nil for
-    /// the map surface, a cluster bubble, or a non-draggable pin.
+    /// The draggable marker under `point`, if any; nil for the map surface, a
+    /// cluster bubble, or a non-draggable pin.
     private func draggableMarker(at point: CGPoint) -> AppleMapMarker? {
-        var view = mapView.hitTest(point, with: nil)
-        while let current = view {
-            if let annotationView = current as? MKAnnotationView,
-               let marker = annotationView.annotation as? AppleMapMarker, marker.isDraggable {
-                return marker
-            }
-            view = current.superview
-        }
-        return nil
+        guard let marker = markerAnnotation(at: point), marker.isDraggable else { return nil }
+        return marker
     }
 
     private func emitMarkerDrag(_ event: String, for marker: AppleMapMarker) {
@@ -231,27 +221,6 @@ extension Map {
             lineWidth: CGFloat(obj["strokeWeight"] as? Double ?? defaultLineWidth),
             fillColor: filled ? color(obj["fillColor"], opacity: obj["fillOpacity"]) : nil
         )
-    }
-
-    static func mapType(from string: String) -> MKMapType {
-        switch string.lowercased() {
-        case "satellite": return .satellite
-        case "hybrid": return .hybrid
-        case "satelliteflyover": return .satelliteFlyover
-        case "hybridflyover": return .hybridFlyover
-        case "mutedstandard": return .mutedStandard
-        default: return .standard
-        }
-    }
-
-    /// Maps a `colorScheme` string to a `UIUserInterfaceStyle`; anything other
-    /// than "light"/"dark" follows the system. Pure, so it can be unit-tested.
-    static func userInterfaceStyle(from string: String) -> UIUserInterfaceStyle {
-        switch string.lowercased() {
-        case "light": return .light
-        case "dark": return .dark
-        default: return .unspecified
-        }
     }
 
     /// Parses a flat array of `{lat,lng}` objects into coordinates.
@@ -353,73 +322,6 @@ extension CapacitorAppleMapsPlugin {
             return
         }
         map.removeOverlays(ids)
-        call.resolve()
-    }
-
-    @objc func setMapType(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        guard let type = call.getString("mapType") else {
-            call.reject("mapType is required")
-            return
-        }
-        map.setMapType(type)
-        call.resolve()
-    }
-
-    @objc func enableCurrentLocation(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        map.setCurrentLocation(call.getBool("enabled", true))
-        call.resolve()
-    }
-
-    @objc func setTrafficEnabled(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        map.setTraffic(call.getBool("enabled", true))
-        call.resolve()
-    }
-
-    @objc func setPointsOfInterestEnabled(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        map.setPointsOfInterest(call.getBool("enabled", true))
-        call.resolve()
-    }
-
-    @objc func setCompassEnabled(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        map.setCompass(call.getBool("enabled", true))
-        call.resolve()
-    }
-
-    @objc func setScaleEnabled(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        map.setScale(call.getBool("enabled", true))
-        call.resolve()
-    }
-
-    @objc func setColorScheme(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        map.setColorScheme(call.getString("colorScheme") ?? "default")
         call.resolve()
     }
 

@@ -240,6 +240,18 @@ class CapacitorAppleMapsTests: XCTestCase {
         XCTAssertFalse(disabled.showInfoWindows)
     }
 
+    /// Parse the config through the SAME coercion the bridge applies to a JS
+    /// object (not a Swift literal), to catch a boolean that survives a literal
+    /// but not the real `create` path.
+    func testConfigParsesShowInfoWindowsThroughBridgeCoercion() throws {
+        let coerced = JSTypes.coerceDictionaryToJSObject([
+            "center": ["lat": 1.0, "lng": 2.0],
+            "showInfoWindows": true
+        ]) ?? [:]
+        let config = try AppleMapConfig(fromJSObject: coerced)
+        XCTAssertTrue(config.showInfoWindows)
+    }
+
     // MARK: - Map type mapping
 
     func testMapTypeMappingIsCaseInsensitive() {
@@ -414,5 +426,38 @@ extension CapacitorAppleMapsTests {
         XCTAssertTrue(config.showsCompass)
         XCTAssertFalse(config.showsScale)
         XCTAssertEqual(config.colorScheme, "default")
+    }
+
+    // MARK: Gestures + padding (#10)
+
+    func testConfigParsesGestures() throws {
+        let obj: JSObject = [
+            "center": ["lat": 0.0, "lng": 0.0] as JSObject,
+            "gestures": ["scroll": false, "zoom": false, "rotate": true, "pitch": false] as JSObject
+        ]
+        let config = try AppleMapConfig(fromJSObject: obj)
+        XCTAssertFalse(config.scrollEnabled)
+        XCTAssertFalse(config.zoomEnabled)
+        XCTAssertTrue(config.rotateEnabled)
+        XCTAssertFalse(config.pitchEnabled)
+    }
+
+    /// Gestures all default on; an omitted gesture key keeps that gesture enabled.
+    func testConfigGestureDefaults() throws {
+        let config = try AppleMapConfig(fromJSObject: ["center": ["lat": 0.0, "lng": 0.0] as JSObject])
+        XCTAssertTrue(config.scrollEnabled)
+        XCTAssertTrue(config.zoomEnabled)
+        XCTAssertTrue(config.rotateEnabled)
+        XCTAssertTrue(config.pitchEnabled)
+    }
+
+    func testParsePaddingReadsSidesAndDefaultsToZero() {
+        let insets = AppleMapConfig.parsePadding(["top": 10.0, "left": 20.0, "bottom": 30.0] as JSObject)
+        XCTAssertEqual(insets.top, 10, accuracy: 1e-6)
+        XCTAssertEqual(insets.left, 20, accuracy: 1e-6)
+        XCTAssertEqual(insets.bottom, 30, accuracy: 1e-6)
+        XCTAssertEqual(insets.right, 0, accuracy: 1e-6) // omitted side defaults to 0
+        XCTAssertEqual(AppleMapConfig.parsePadding(nil), .zero)
+        XCTAssertEqual(AppleMapConfig.parsePadding("not an object"), .zero)
     }
 }

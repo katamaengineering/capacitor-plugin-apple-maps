@@ -13,7 +13,9 @@ import type {
   LatLngBounds,
   MapClickCallbackData,
   MapColorScheme,
+  MapGestures,
   MapLongClickCallbackData,
+  MapPadding,
   MapReadyCallbackData,
   MapType,
   Marker,
@@ -72,6 +74,7 @@ export class AppleMap {
   private onCameraIdleListener?: PluginListenerHandle;
   private onCameraMoveStartedListener?: PluginListenerHandle;
   private onMarkerClickListener?: PluginListenerHandle;
+  private onInfoWindowClickListener?: PluginListenerHandle;
   private onMapClickListener?: PluginListenerHandle;
   private onMapLongClickListener?: PluginListenerHandle;
   private onClusterClickListener?: PluginListenerHandle;
@@ -368,6 +371,25 @@ export class AppleMap {
     return CapacitorAppleMaps.setColorScheme({ id: this.id, colorScheme });
   }
 
+  /** Enable or disable user gestures (only the fields you pass are changed). */
+  async setGestures(gestures: MapGestures): Promise<void> {
+    return CapacitorAppleMaps.setGestures({ id: this.id, gestures });
+  }
+
+  /** Inset the map's edges (shifts controls inward and pads `fitBounds`). */
+  async setPadding(padding: MapPadding): Promise<void> {
+    return CapacitorAppleMaps.setPadding({ id: this.id, padding });
+  }
+
+  /**
+   * Render the current map view to a PNG `data:` URL - the visible base map with
+   * the marker pins and overlays composited on top.
+   */
+  async takeSnapshot(): Promise<string> {
+    const res = await CapacitorAppleMaps.takeSnapshot({ id: this.id });
+    return res.image;
+  }
+
   async setOnCameraIdleListener(callback?: (data: CameraIdleCallbackData) => void): Promise<void> {
     if (this.onCameraIdleListener) {
       await this.onCameraIdleListener.remove();
@@ -399,6 +421,19 @@ export class AppleMap {
     }
     if (callback) {
       this.onMarkerClickListener = await CapacitorAppleMaps.addListener('onMarkerClick', (data) => {
+        if (data.mapId === this.id) callback(data);
+      });
+    }
+  }
+
+  /** Fires when the info-window bubble (see `showInfoWindows`) is tapped. */
+  async setOnInfoWindowClickListener(callback?: (data: MarkerClickCallbackData) => void): Promise<void> {
+    if (this.onInfoWindowClickListener) {
+      await this.onInfoWindowClickListener.remove();
+      this.onInfoWindowClickListener = undefined;
+    }
+    if (callback) {
+      this.onInfoWindowClickListener = await CapacitorAppleMaps.addListener('onInfoWindowClick', (data) => {
         if (data.mapId === this.id) callback(data);
       });
     }
@@ -502,6 +537,7 @@ export class AppleMap {
     await this.onMarkerDragStartListener?.remove();
     await this.onMarkerDragListener?.remove();
     await this.onMarkerDragEndListener?.remove();
+    await this.onInfoWindowClickListener?.remove();
     this.onCameraIdleListener = undefined;
     this.onCameraMoveStartedListener = undefined;
     this.onMarkerClickListener = undefined;
@@ -511,6 +547,7 @@ export class AppleMap {
     this.onMarkerDragStartListener = undefined;
     this.onMarkerDragListener = undefined;
     this.onMarkerDragEndListener = undefined;
+    this.onInfoWindowClickListener = undefined;
     return CapacitorAppleMaps.destroy({ id: this.id });
   }
 }

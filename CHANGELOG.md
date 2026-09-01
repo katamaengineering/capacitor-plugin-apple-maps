@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0]
 
+### Fixed
+
+- **Hardened the main-thread hops against deadlock.** The bridge's
+  `DispatchQueue.main.sync` sites now route through a `runOnMainSync` helper that
+  runs the work inline when already on the main thread instead of deadlocking (it
+  still hops over synchronously when called off-main, as before).
+- **Info windows (`showInfoWindows`) now actually appear on tap.** MapKit's native
+  callout does not render when the map is composited into the web view, so the
+  plugin now draws its own info-window bubble (title + optional `snippet`) as a
+  map subview, positioned above the pin and kept glued to it as the map pans and
+  zooms. Tapping a marker shows it and deselects the pin immediately (so it never
+  balloons to MapKit's enlarged selected size); tapping another marker or the map
+  closes it. `onMarkerClick` fires as before.
+
 ### Added
 
 - **`onCameraMoveStarted` event** (`setOnCameraMoveStartedListener`). Fires once
@@ -18,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`fitBounds` now also accepts a raw `LatLng[]`.** Pass the coordinates
   directly (e.g. every pin's `coordinate` after `addMarkers`) and the wrapper
   computes the bounding box for you, instead of building a `LatLngBounds` by hand.
+- **`onInfoWindowClick` event** (`setOnInfoWindowClickListener`). Fires when the
+  info-window bubble is tapped, carrying the marker's id / coordinate / title.
+  (The bubble is the plugin's own view, so a tap on it no longer just dismisses.)
 - **Draggable markers + drag events.** Mark a pin `draggable: true` (on
   `addMarkers` / `addMarker`, or toggled via `updateMarkers`) to let the user
   press-and-hold and drag it. `onMarkerDragStart`, `onMarkerDrag` (continuous),
@@ -25,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   long-press recognizer on the map (not `MKAnnotationView.isDraggable`), so the
   intermediate coordinates stream rather than only the drop point; a pin that is
   currently clustered can't be dragged until it separates.
+- **Gesture toggles, map padding, and `takeSnapshot`.** `setGestures({ scroll,
+  zoom, rotate, pitch })` enables/disables individual user gestures (also settable
+  at create time via `AppleMapConfig.gestures`); `setPadding({ top, left, right,
+  bottom })` insets the map (shifting MapKit's compass/scale/legal controls inward
+  and padding the `fitBounds` framing, also `AppleMapConfig.padding`); and
+  `takeSnapshot()` renders the visible map to a PNG `data:` URL via
+  `MKMapSnapshotter`, with the marker pins and overlays composited on top.
 - **Appearance toggles.** `setTrafficEnabled`, `setPointsOfInterestEnabled`,
   `setCompassEnabled`, `setScaleEnabled`, and `setColorScheme('default' | 'light'
   | 'dark')` control the corresponding `MKMapView` properties at runtime. Each

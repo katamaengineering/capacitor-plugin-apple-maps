@@ -13,7 +13,7 @@ import WebKit
 extension Map {
 
     func updateRender(mapBounds: CGRect) {
-        DispatchQueue.main.sync {
+        runOnMainSync {
             let newWidth = round(Double(mapBounds.width))
             let newHeight = round(Double(mapBounds.height))
             let widthEqual = round(Double(self.mapView.bounds.width)) == newWidth
@@ -29,7 +29,7 @@ extension Map {
     }
 
     func rebindTargetContainer(mapBounds: CGRect) {
-        DispatchQueue.main.sync {
+        runOnMainSync {
             let refWidth = round(Double(mapBounds.width))
             let refHeight = round(Double(mapBounds.height))
             guard let target = self.getTargetContainer(refWidth: refWidth, refHeight: refHeight) else { return }

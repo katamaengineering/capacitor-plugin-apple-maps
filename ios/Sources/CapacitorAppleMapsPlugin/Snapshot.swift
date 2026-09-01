@@ -1,0 +1,153 @@
+import Foundation
+import MapKit
+import UIKit
+import Capacitor
+
+// MARK: - Map snapshot (#10)
+//
+// Renders the current map region to a PNG via MKMapSnapshotter, then composites
+// the live annotation pins and overlays on top (MKMapSnapshotter itself renders
+// only the base-map tiles, not the map view's subviews/overlays).
+
+enum SnapshotError: Error, LocalizedError {
+    case failed(String)
+    var errorDescription: String? {
+        switch self {
+        case .failed(let message): return message
+        }
+    }
+}
+
+extension Map {
+    /// Snapshot the visible region (with pins + overlays drawn in) and hand back a
+    /// `data:image/png;base64,...` URL. `completion` is called on the main thread.
+    func takeSnapshot(completion: @escaping (Result<String, Error>) -> Void) {
+        DispatchQueue.main.async {
+            let options = MKMapSnapshotter.Options()
+            options.region = self.mapView.region
+            options.mapType = self.mapView.mapType
+            options.size = self.mapView.bounds.size
+            options.showsBuildings = true
+
+            let snapshotter = MKMapSnapshotter(options: options)
+            self.pendingSnapshotter = snapshotter
+            // Composite on the main thread - it reads live annotation views.
+            snapshotter.start(with: .main) { snapshot, error in
+                self.pendingSnapshotter = nil
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+                guard let snapshot = snapshot else {
+                    completion(.failure(SnapshotError.failed("snapshot produced no image")))
+                    return
+                }
+                let composed = self.composite(snapshot)
+                guard let data = composed.pngData() else {
+                    completion(.failure(SnapshotError.failed("could not encode snapshot")))
+                    return
+                }
+                completion(.success("data:image/png;base64," + data.base64EncodedString()))
+            }
+        }
+    }
+
+    /// Draw the base-map snapshot, then overlays, then pins on top.
+    private func composite(_ snapshot: MKMapSnapshotter.Snapshot) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: snapshot.image.size)
+        return renderer.image { context in
+            snapshot.image.draw(at: .zero)
+            drawOverlays(into: context.cgContext, snapshot: snapshot)
+            drawMarkers(into: context.cgContext, snapshot: snapshot)
+        }
+    }
+
+    private func drawMarkers(into ctx: CGContext, snapshot: MKMapSnapshotter.Snapshot) {
+        for marker in markers.values {
+            // Render the live annotation view so the pin looks exactly as on the
+            // map (default balloon or custom icon). MapKit positions a view so its
+            // center sits at the coordinate offset by `centerOffset`.
+            guard let view = mapView.view(for: marker) else { continue }
+            let anchor = snapshot.point(for: marker.coordinate)
+            let center = CGPoint(x: anchor.x + view.centerOffset.x, y: anchor.y + view.centerOffset.y)
+            ctx.saveGState()
+            ctx.translateBy(x: center.x - view.bounds.width / 2, y: center.y - view.bounds.height / 2)
+            view.layer.render(in: ctx)
+            ctx.restoreGState()
+        }
+    }
+
+    private func drawOverlays(into ctx: CGContext, snapshot: MKMapSnapshotter.Snapshot) {
+        for overlay in overlays.values {
+            let style = overlayStyles[ObjectIdentifier(overlay)]
+            let stroke = (style?.strokeColor ?? .systemBlue).cgColor
+            let lineWidth = style?.lineWidth ?? 3
+            if let polyline = overlay as? MKPolyline {
+                strokePath(multiPointPath(polyline, snapshot: snapshot, closed: false),
+                           into: ctx, stroke: stroke, fill: nil, lineWidth: lineWidth)
+            } else if let polygon = overlay as? MKPolygon {
+                strokePath(multiPointPath(polygon, snapshot: snapshot, closed: true),
+                           into: ctx, stroke: stroke, fill: style?.fillColor?.cgColor, lineWidth: lineWidth)
+            } else if let circle = overlay as? MKCircle {
+                strokePath(circlePath(circle, snapshot: snapshot),
+                           into: ctx, stroke: stroke, fill: style?.fillColor?.cgColor, lineWidth: lineWidth)
+            }
+        }
+    }
+
+    private func strokePath(_ path: CGPath, into ctx: CGContext, stroke: CGColor, fill: CGColor?, lineWidth: CGFloat) {
+        if let fill = fill {
+            ctx.addPath(path)
+            ctx.setFillColor(fill)
+            ctx.fillPath()
+        }
+        ctx.addPath(path)
+        ctx.setStrokeColor(stroke)
+        ctx.setLineWidth(lineWidth)
+        ctx.setLineJoin(.round)
+        ctx.strokePath()
+    }
+
+    private func multiPointPath(_ shape: MKMultiPoint, snapshot: MKMapSnapshotter.Snapshot, closed: Bool) -> CGPath {
+        let path = CGMutablePath()
+        let points = shape.points()
+        for index in 0..<shape.pointCount {
+            let point = snapshot.point(for: points[index].coordinate)
+            if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        if closed { path.closeSubpath() }
+        return path
+    }
+
+    private func circlePath(_ circle: MKCircle, snapshot: MKMapSnapshotter.Snapshot) -> CGPath {
+        let center = snapshot.point(for: circle.coordinate)
+        // Convert the radius (meters) to points via a coordinate one radius north.
+        let north = CLLocationCoordinate2D(
+            latitude: circle.coordinate.latitude + circle.radius / 111_320.0,
+            longitude: circle.coordinate.longitude
+        )
+        let edge = snapshot.point(for: north)
+        let radius = hypot(edge.x - center.x, edge.y - center.y)
+        return CGPath(
+            ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2),
+            transform: nil
+        )
+    }
+}
+
+extension CapacitorAppleMapsPlugin {
+    @objc func takeSnapshot(_ call: CAPPluginCall) {
+        guard let id = call.getString("id"), let map = maps[id] else {
+            call.reject("map not found")
+            return
+        }
+        map.takeSnapshot { result in
+            switch result {
+            case .success(let image):
+                call.resolve(["image": image])
+            case .failure(let error):
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+}

@@ -36,6 +36,9 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         CAPPluginMethod(name: "setCompassEnabled", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setScaleEnabled", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setColorScheme", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setGestures", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setPadding", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "takeSnapshot", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchAutocomplete", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchPlaces", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchResolve", returnType: CAPPluginReturnPromise),
@@ -98,7 +101,7 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
                 maps.removeValue(forKey: id)?.destroy()
             }
 
-            DispatchQueue.main.sync {
+            runOnMainSync {
                 self.maps[id] = Map(id: id, config: config, delegate: self)
             }
             call.resolve()
@@ -134,7 +137,7 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         let zoom = configObj["zoom"] as? Double
         let animate = configObj["animate"] as? Bool ?? false
 
-        DispatchQueue.main.sync {
+        runOnMainSync {
             map.setCameraInternal(coordinate: coordinate, zoom: zoom, animate: animate)
         }
         call.resolve()
@@ -145,7 +148,7 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
             call.reject("map not found")
             return
         }
-        DispatchQueue.main.sync {
+        runOnMainSync {
             call.resolve(map.boundsPayload())
         }
     }
@@ -155,7 +158,7 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
             call.reject("map not found")
             return
         }
-        DispatchQueue.main.sync {
+        runOnMainSync {
             call.resolve(map.cameraPayload())
         }
     }
@@ -238,11 +241,16 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
                 ?? MKMarkerAnnotationView(annotation: marker, reuseIdentifier: markerDefaultReuseId)
         }
         view.annotation = marker
-        // Native callout (info window) when the map opted in and the marker has a
-        // title; otherwise tap-only, matching the plugin's original behavior.
-        view.canShowCallout = map.config.showInfoWindows && !(marker.title?.isEmpty ?? true)
         view.clusteringIdentifier = map.clusteringEnabled ? clusterReuseId : nil
         view.displayPriority = .required
+        // Info windows are drawn as our own bubble (see Callout.swift), so the
+        // native callout stays off. When info windows are on, hide the inline
+        // title/subtitle labels too, so the bubble is the sole info display.
+        if let markerView = view as? MKMarkerAnnotationView {
+            let visibility: MKFeatureVisibility = map.config.showInfoWindows ? .hidden : .adaptive
+            markerView.titleVisibility = visibility
+            markerView.subtitleVisibility = visibility
+        }
 
         // Reset first: a recycled image view must not keep a previous marker's
         // icon while an `https:` icon for this one is still downloading (the
@@ -253,6 +261,9 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
             view.image = image
             view.centerOffset = CGPoint(x: 0, y: -image.size.height / 2)
         }
+        // The native callout stays off - we render our own bubble (Callout.swift),
+        // because MapKit's callout doesn't show through the web-view compositing.
+        view.canShowCallout = false
         return view
     }
 
@@ -287,10 +298,15 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
             "longitude": marker.coordinate.longitude,
             "title": marker.title ?? ""
         ])
-        // With no callout to show, deselect immediately so the same pin can be
-        // tapped again. With a callout, leave it selected so MapKit shows it.
-        if !view.canShowCallout {
-            mapView.deselectAnnotation(marker, animated: false)
+
+        // Never keep MapKit's selected (enlarged) state; deselect right away so the
+        // pin stays its normal size, then show our own info-window bubble instead
+        // (the native callout doesn't render through the web-view compositing).
+        mapView.deselectAnnotation(marker, animated: false)
+        if map.config.showInfoWindows && !(marker.title?.isEmpty ?? true) {
+            map.showCallout(for: marker)
+        } else {
+            map.dismissCallout()
         }
     }
 
