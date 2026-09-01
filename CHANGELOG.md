@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0]
+
+### Added
+
+- **`onCameraMoveStarted` event** (`setOnCameraMoveStartedListener`). Fires once
+  when the camera begins moving, before `onCameraIdle`, carrying an `isGesture`
+  flag that distinguishes a user pan/zoom from a programmatic `setCamera` /
+  `fitBounds` move. The self-triggered min/max-zoom bounce is not reported.
+- **`addMarker(marker)` / `removeMarker(id)`.** Single-marker convenience over
+  the batch `addMarkers` / `removeMarkers`; `addMarker` returns the new id.
+- **`fitBounds` now also accepts a raw `LatLng[]`.** Pass the coordinates
+  directly (e.g. every pin's `coordinate` after `addMarkers`) and the wrapper
+  computes the bounding box for you, instead of building a `LatLngBounds` by hand.
+- **Draggable markers + drag events.** Mark a pin `draggable: true` (on
+  `addMarkers` / `addMarker`, or toggled via `updateMarkers`) to let the user
+  press-and-hold and drag it. `onMarkerDragStart`, `onMarkerDrag` (continuous),
+  and `onMarkerDragEnd` each carry the pin's live coordinate. Driven by a
+  long-press recognizer on the map (not `MKAnnotationView.isDraggable`), so the
+  intermediate coordinates stream rather than only the drop point; a pin that is
+  currently clustered can't be dragged until it separates.
+- **Appearance toggles.** `setTrafficEnabled`, `setPointsOfInterestEnabled`,
+  `setCompassEnabled`, `setScaleEnabled`, and `setColorScheme('default' | 'light'
+  | 'dark')` control the corresponding `MKMapView` properties at runtime. Each
+  also has an `AppleMapConfig` field applied at create time (`showsTraffic`,
+  `showsPointsOfInterest`, `showsCompass`, `showsScale`, `colorScheme`); the
+  defaults mirror MapKit's own (traffic/scale off, POI/compass on, system scheme).
+
 ## [0.4.0]
 
 ### Added

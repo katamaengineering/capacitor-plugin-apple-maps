@@ -82,6 +82,11 @@ class AppleMapMarker: MKPointAnnotation {
     var markerId: String = UUID().uuidString
     var iconUrl: String?
     var iconSize: CGSize?
+    /// When true the pin can be dragged (press-and-hold, then move), emitting the
+    /// `onMarkerDrag*` events. Dragging is driven by a long-press recognizer on the
+    /// map rather than `MKAnnotationView.isDraggable`, so intermediate coordinates
+    /// stream to JS instead of only the drop point.
+    var isDraggable = false
 }
 
 /// Stroke/fill styling for an overlay, resolved from the JS payload and looked
@@ -106,6 +111,11 @@ struct AppleMapConfig {
     let clustering: Bool
     let mapType: String
     let showInfoWindows: Bool
+    let showsTraffic: Bool
+    let showsPointsOfInterest: Bool
+    let showsCompass: Bool
+    let showsScale: Bool
+    let colorScheme: String
 
     init(fromJSObject obj: JSObject) throws {
         guard let centerObj = obj["center"] as? JSObject,
@@ -124,6 +134,12 @@ struct AppleMapConfig {
         self.clustering = obj["clustering"] as? Bool ?? false
         self.mapType = obj["mapType"] as? String ?? "standard"
         self.showInfoWindows = obj["showInfoWindows"] as? Bool ?? false
+        // Defaults mirror MapKit's own (traffic/scale off, POI/compass on).
+        self.showsTraffic = obj["showsTraffic"] as? Bool ?? false
+        self.showsPointsOfInterest = obj["showsPointsOfInterest"] as? Bool ?? true
+        self.showsCompass = obj["showsCompass"] as? Bool ?? true
+        self.showsScale = obj["showsScale"] as? Bool ?? false
+        self.colorScheme = obj["colorScheme"] as? String ?? "default"
     }
 }
 
@@ -149,6 +165,13 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
     /// Guards against a feedback loop when we programmatically clamp the region
     /// back to the minimum zoom inside `regionDidChange`.
     var isAdjustingRegion = false
+
+    /// The marker currently being dragged (via the map's long-press recognizer),
+    /// or nil when no drag is in progress.
+    var draggingMarker: AppleMapMarker?
+    /// The map's `isScrollEnabled` value before a drag disabled it, restored when
+    /// the drag ends.
+    var scrollWasEnabledBeforeDrag = true
 
     weak var delegate: CapacitorAppleMapsPlugin?
     var targetView: UIView?
@@ -185,6 +208,7 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
             self.mapView.delegate = self.delegate
             self.mapView.showsUserLocation = false
             self.mapView.mapType = Map.mapType(from: self.config.mapType)
+            self.applyAppearance(self.config)
             self.mapView.frame = CGRect(x: self.config.x, y: self.config.y, width: self.config.width, height: self.config.height)
             self.setCameraInternal(coordinate: self.config.center, zoom: self.config.zoom, animate: false)
 
@@ -201,6 +225,15 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
             longPress.cancelsTouchesInView = false
             longPress.delegate = self
             self.mapView.addGestureRecognizer(longPress)
+
+            // Drives marker dragging: a long-press that lands on a draggable pin
+            // picks it up; subsequent movement streams onMarkerDrag. Presses that
+            // miss a draggable pin are ignored here and handled by the long-press
+            // recognizer above.
+            let markerDrag = UILongPressGestureRecognizer(target: self, action: #selector(self.handleMarkerDrag(_:)))
+            markerDrag.cancelsTouchesInView = false
+            markerDrag.delegate = self
+            self.mapView.addGestureRecognizer(markerDrag)
 
             self.targetView = self.getTargetContainer(refWidth: self.config.width, refHeight: self.config.height)
             if let target = self.targetView {
@@ -315,6 +348,7 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
         marker.title = obj["title"] as? String
         marker.subtitle = obj["snippet"] as? String
         marker.iconUrl = obj["iconUrl"] as? String
+        marker.isDraggable = obj["draggable"] as? Bool ?? false
         if let sizeObj = obj["iconSize"] as? JSObject,
            let width = sizeObj["width"] as? Double,
            let height = sizeObj["height"] as? Double {
@@ -357,6 +391,11 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
                 }
                 if obj.keys.contains("snippet") {
                     marker.subtitle = obj["snippet"] as? String
+                }
+                if obj.keys.contains("draggable") {
+                    // The drag gate reads this flag live, so no view rebuild is
+                    // needed to enable/disable dragging.
+                    marker.isDraggable = obj["draggable"] as? Bool ?? false
                 }
                 var iconChanged = false
                 if obj.keys.contains("iconUrl") {
@@ -402,62 +441,4 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
         self.mapView.addAnnotations(all)
     }
 
-}
-
-// MARK: - WKWebView touch routing
-//
-// Routes touches that land on a WKChildScrollView down to the native map view
-// mounted inside it. Ported from `@capacitor/google-maps`.
-extension WKWebView {
-    override open func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        var hitView = super.hitTest(point, with: event)
-        if let childScrollClass = NSClassFromString("WKChildScrollView"),
-           let candidate = hitView, candidate.isKind(of: childScrollClass) {
-            for item in candidate.subviews.reversed() {
-                let converted = item.convert(point, from: self)
-                if let inner = item.hitTest(converted, with: event) {
-                    hitView = inner
-                    break
-                }
-            }
-        }
-        return hitView
-    }
-}
-
-// MARK: - View tree helpers (ported from @capacitor/google-maps)
-
-extension UIView {
-    private static var allSubviews: [UIView] = []
-
-    private func viewArray(root: UIView) -> [UIView] {
-        var index = root.tag
-        for view in root.subviews {
-            if view.tag == Map.mapTag { continue }
-            view.tag = index
-            UIView.allSubviews.append(view)
-            _ = viewArray(root: view)
-            index += 1
-        }
-        return UIView.allSubviews
-    }
-
-    func getAllSubViews() -> [UIView] {
-        UIView.allSubviews = []
-        return viewArray(root: self).reversed()
-    }
-
-    func removeAllSubview() {
-        subviews.forEach { $0.removeFromSuperview() }
-    }
-}
-
-extension CGRect {
-    static func fromJSObject(_ obj: JSObject) -> CGRect {
-        let x = obj["x"] as? Double ?? 0
-        let y = obj["y"] as? Double ?? 0
-        let width = obj["width"] as? Double ?? 0
-        let height = obj["height"] as? Double ?? 0
-        return CGRect(x: x, y: y, width: width, height: height)
-    }
 }

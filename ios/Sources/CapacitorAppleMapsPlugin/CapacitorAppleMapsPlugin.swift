@@ -19,8 +19,10 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         CAPPluginMethod(name: "getCameraPosition", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "fitBounds", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "addMarkers", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "addMarker", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateMarkers", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "removeMarkers", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "removeMarker", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "enableClustering", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "disableClustering", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "addPolylines", returnType: CAPPluginReturnPromise),
@@ -29,6 +31,11 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         CAPPluginMethod(name: "removeOverlays", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setMapType", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "enableCurrentLocation", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setTrafficEnabled", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setPointsOfInterestEnabled", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setCompassEnabled", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setScaleEnabled", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setColorScheme", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchAutocomplete", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchPlaces", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchResolve", returnType: CAPPluginReturnPromise),
@@ -177,63 +184,9 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
     }
 
     // MARK: - Markers
-
-    @objc func addMarkers(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        guard let markerObjs = call.getArray("markers") as? [JSObject] else {
-            call.reject("markers array is required")
-            return
-        }
-        let ids = map.addMarkers(markerObjs)
-        call.resolve(["ids": ids])
-    }
-
-    @objc func updateMarkers(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        guard let markerObjs = call.getArray("markers") as? [JSObject] else {
-            call.reject("markers array is required")
-            return
-        }
-        map.updateMarkers(markerObjs)
-        call.resolve()
-    }
-
-    @objc func removeMarkers(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        guard let ids = call.getArray("markerIds") as? [String] else {
-            call.reject("markerIds array is required")
-            return
-        }
-        map.removeMarkers(ids)
-        call.resolve()
-    }
-
-    @objc func enableClustering(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        map.enableClustering()
-        call.resolve()
-    }
-
-    @objc func disableClustering(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let map = maps[id] else {
-            call.reject("map not found")
-            return
-        }
-        map.disableClustering()
-        call.resolve()
-    }
+    //
+    // The marker + clustering bridge methods live in MarkerBridge.swift to keep
+    // this type within SwiftLint's body-length budget.
 
     // MARK: - Search
 
@@ -250,35 +203,10 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
     }
 
     // MARK: - MKMapViewDelegate
-
-    public func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-        guard let map = findMap(for: mapView) else { return }
-
-        if map.isAdjustingRegion {
-            // This callback is the settle after our own clamp - clear the guard
-            // and report the corrected camera.
-            map.isAdjustingRegion = false
-        } else if let minZoom = map.config.minZoom, map.currentZoom() < minZoom - 0.01 {
-            // The user zoomed out past the floor; bounce back to it.
-            map.isAdjustingRegion = true
-            map.setCameraInternal(coordinate: mapView.centerCoordinate, zoom: minZoom, animate: true)
-            return
-        } else if let maxZoom = map.config.maxZoom, map.currentZoom() > maxZoom + 0.01 {
-            // The user zoomed in past the ceiling; bounce back to it.
-            map.isAdjustingRegion = true
-            map.setCameraInternal(coordinate: mapView.centerCoordinate, zoom: maxZoom, animate: true)
-            return
-        }
-
-        let center = mapView.centerCoordinate
-        notifyListeners("onCameraIdle", data: [
-            "mapId": map.id,
-            "latitude": center.latitude,
-            "longitude": center.longitude,
-            "zoom": map.currentZoom(),
-            "bounds": map.boundsPayload()
-        ])
-    }
+    //
+    // The region-change delegate methods (onCameraMoveStarted / onCameraIdle and
+    // the min/max-zoom bounce) live in CameraEvents.swift to keep this type within
+    // SwiftLint's body-length budget.
 
     public func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         if annotation is MKUserLocation { return nil }

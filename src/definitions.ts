@@ -36,6 +36,20 @@ export interface AppleMapConfig {
    * tap-only behavior (`onMarkerClick` fires and the pin deselects immediately).
    */
   showInfoWindows?: boolean;
+  /** Overlay live traffic conditions (`MKMapView.showsTraffic`). Defaults to `false`. */
+  showsTraffic?: boolean;
+  /**
+   * Show Apple's points of interest (shops, parks, …). Maps to a
+   * `MKPointOfInterestFilter` of `.includingAll` / `.excludingAll`. Defaults to
+   * `true` (MapKit's default).
+   */
+  showsPointsOfInterest?: boolean;
+  /** Show the compass when the map is rotated (`MKMapView.showsCompass`). Defaults to `true`. */
+  showsCompass?: boolean;
+  /** Show the scale bar while zooming (`MKMapView.showsScale`). Defaults to `false`. */
+  showsScale?: boolean;
+  /** Force a light/dark appearance regardless of the device setting. Defaults to `default` (follow system). */
+  colorScheme?: MapColorScheme;
   // --- Populated by the wrapper, not by callers. ---
   width?: number;
   height?: number;
@@ -66,6 +80,12 @@ export interface CameraPosition {
  */
 export type MapType = 'standard' | 'satellite' | 'hybrid' | 'satelliteFlyover' | 'hybridFlyover' | 'mutedStandard';
 
+/**
+ * Forces the map's light/dark appearance regardless of the device setting, via
+ * `overrideUserInterfaceStyle`. `default` follows the system.
+ */
+export type MapColorScheme = 'default' | 'light' | 'dark';
+
 export interface Marker {
   coordinate: LatLng;
   title?: string;
@@ -86,6 +106,13 @@ export interface Marker {
    * target them with {@link CapacitorAppleMapsPlugin.updateMarkers}.
    */
   markerId?: string;
+  /**
+   * Let the user drag this pin (press-and-hold, then move). Fires
+   * `onMarkerDragStart` / `onMarkerDrag` / `onMarkerDragEnd`. Defaults to
+   * `false`. A pin that is currently clustered can't be dragged until it
+   * separates into its own annotation.
+   */
+  draggable?: boolean;
 }
 
 /**
@@ -99,6 +126,8 @@ export interface MarkerUpdate {
   snippet?: string;
   iconUrl?: string;
   iconSize?: { width: number; height: number };
+  /** Enable or disable dragging for this marker. */
+  draggable?: boolean;
 }
 
 /** Shared stroke/fill styling for overlays. Colors are `#RRGGBB` or `#RRGGBBAA` hex. */
@@ -168,6 +197,18 @@ export interface MarkerClickCallbackData {
   title?: string;
 }
 
+/**
+ * A drag on a `draggable` marker, carrying the marker's live coordinate.
+ * `onMarkerDragStart` fires once when the drag begins, `onMarkerDrag` fires
+ * continuously as it moves, and `onMarkerDragEnd` fires once on release.
+ */
+export interface MarkerDragCallbackData {
+  mapId: string;
+  markerId: string;
+  latitude: number;
+  longitude: number;
+}
+
 export interface MapReadyCallbackData {
   mapId: string;
 }
@@ -180,6 +221,18 @@ export interface MapClickCallbackData {
 
 /** A long-press on the map surface (not on a marker). */
 export type MapLongClickCallbackData = MapClickCallbackData;
+
+/**
+ * Fired once when the camera begins moving, before `onCameraIdle`. `isGesture`
+ * distinguishes a user pan/zoom/rotate from a programmatic move (a
+ * {@link CapacitorAppleMapsPlugin.setCamera} / {@link CapacitorAppleMapsPlugin.fitBounds}
+ * call). Mirrors `@capacitor/google-maps`'s `onCameraMoveStarted`.
+ */
+export interface CameraMoveStartedCallbackData {
+  mapId: string;
+  /** `true` for a user gesture, `false` for a programmatic camera move. */
+  isGesture: boolean;
+}
 
 /** A tap on a cluster bubble. Carries the members it groups. */
 export interface ClusterClickCallbackData {
@@ -240,9 +293,13 @@ export interface CapacitorAppleMapsPlugin {
    */
   fitBounds(options: { id: string; bounds: LatLngBounds; padding?: number; animate?: boolean }): Promise<void>;
   addMarkers(options: { id: string; markers: Marker[] }): Promise<{ ids: string[] }>;
+  /** Add a single marker, returning its id. Convenience over {@link addMarkers}. */
+  addMarker(options: { id: string; marker: Marker }): Promise<{ id: string }>;
   /** Apply partial changes to existing markers, addressed by `markerId`. */
   updateMarkers(options: { id: string; markers: MarkerUpdate[] }): Promise<void>;
   removeMarkers(options: { id: string; markerIds: string[] }): Promise<void>;
+  /** Remove a single marker by id. Convenience over {@link removeMarkers}. */
+  removeMarker(options: { id: string; markerId: string }): Promise<void>;
   enableClustering(options: { id: string }): Promise<void>;
   disableClustering(options: { id: string }): Promise<void>;
 
@@ -260,6 +317,17 @@ export interface CapacitorAppleMapsPlugin {
    * user for location permission; without it MapKit shows nothing.
    */
   enableCurrentLocation(options: { id: string; enabled: boolean }): Promise<void>;
+
+  /** Overlay or hide live traffic conditions (`MKMapView.showsTraffic`). */
+  setTrafficEnabled(options: { id: string; enabled: boolean }): Promise<void>;
+  /** Show or hide Apple's points of interest (a `.includingAll` / `.excludingAll` filter). */
+  setPointsOfInterestEnabled(options: { id: string; enabled: boolean }): Promise<void>;
+  /** Show or hide the compass (`MKMapView.showsCompass`). */
+  setCompassEnabled(options: { id: string; enabled: boolean }): Promise<void>;
+  /** Show or hide the scale bar (`MKMapView.showsScale`). */
+  setScaleEnabled(options: { id: string; enabled: boolean }): Promise<void>;
+  /** Force a light/dark appearance, or `default` to follow the device setting. */
+  setColorScheme(options: { id: string; colorScheme: MapColorScheme }): Promise<void>;
 
   /**
    * Type-ahead place autocomplete via `MKLocalSearchCompleter`. Needs no API
@@ -315,5 +383,21 @@ export interface CapacitorAppleMapsPlugin {
   addListener(
     eventName: 'onClusterClick',
     listenerFunc: (data: ClusterClickCallbackData) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'onCameraMoveStarted',
+    listenerFunc: (data: CameraMoveStartedCallbackData) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'onMarkerDragStart',
+    listenerFunc: (data: MarkerDragCallbackData) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'onMarkerDrag',
+    listenerFunc: (data: MarkerDragCallbackData) => void,
+  ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'onMarkerDragEnd',
+    listenerFunc: (data: MarkerDragCallbackData) => void,
   ): Promise<PluginListenerHandle>;
 }

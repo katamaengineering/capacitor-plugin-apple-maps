@@ -5,16 +5,20 @@ import type {
   AppleMapConfig,
   CameraConfig,
   CameraIdleCallbackData,
+  CameraMoveStartedCallbackData,
   CameraPosition,
   Circle,
   ClusterClickCallbackData,
+  LatLng,
   LatLngBounds,
   MapClickCallbackData,
+  MapColorScheme,
   MapLongClickCallbackData,
   MapReadyCallbackData,
   MapType,
   Marker,
   MarkerClickCallbackData,
+  MarkerDragCallbackData,
   MarkerUpdate,
   Polygon,
   Polyline,
@@ -66,10 +70,14 @@ export class AppleMap {
   private handleScrollEvent = (): void => this.updateMapBounds();
 
   private onCameraIdleListener?: PluginListenerHandle;
+  private onCameraMoveStartedListener?: PluginListenerHandle;
   private onMarkerClickListener?: PluginListenerHandle;
   private onMapClickListener?: PluginListenerHandle;
   private onMapLongClickListener?: PluginListenerHandle;
   private onClusterClickListener?: PluginListenerHandle;
+  private onMarkerDragStartListener?: PluginListenerHandle;
+  private onMarkerDragListener?: PluginListenerHandle;
+  private onMarkerDragEndListener?: PluginListenerHandle;
 
   private constructor(id: string) {
     this.id = id;
@@ -229,16 +237,50 @@ export class AppleMap {
   }
 
   /**
-   * Move the camera to fit `bounds`, insetting by `padding` points on each side
-   * (default `0`). Handy after {@link addMarkers} to frame every pin.
+   * Move the camera to fit either a {@link LatLngBounds} or a raw list of
+   * `LatLng` coordinates, insetting by `padding` points on each side (default
+   * `0`). Passing the coordinates directly saves computing the bounding box by
+   * hand — the common path after {@link addMarkers} to frame every pin.
    */
-  async fitBounds(bounds: LatLngBounds, padding?: number, animate = true): Promise<void> {
+  async fitBounds(target: LatLngBounds | LatLng[], padding?: number, animate = true): Promise<void> {
+    const bounds = Array.isArray(target) ? AppleMap.boundsForCoordinates(target) : target;
     return CapacitorAppleMaps.fitBounds({ id: this.id, bounds, padding, animate });
+  }
+
+  /**
+   * The smallest {@link LatLngBounds} enclosing every coordinate. Throws on an
+   * empty list, since there is nothing to frame.
+   */
+  private static boundsForCoordinates(coordinates: LatLng[]): LatLngBounds {
+    if (coordinates.length === 0) {
+      throw new Error('fitBounds: coordinates array is empty');
+    }
+    let south = coordinates[0].lat;
+    let north = coordinates[0].lat;
+    let west = coordinates[0].lng;
+    let east = coordinates[0].lng;
+    for (const { lat, lng } of coordinates) {
+      if (lat < south) south = lat;
+      if (lat > north) north = lat;
+      if (lng < west) west = lng;
+      if (lng > east) east = lng;
+    }
+    return {
+      southwest: { lat: south, lng: west },
+      northeast: { lat: north, lng: east },
+      center: { lat: (south + north) / 2, lng: (west + east) / 2 },
+    };
   }
 
   async addMarkers(markers: Marker[]): Promise<string[]> {
     const res = await CapacitorAppleMaps.addMarkers({ id: this.id, markers });
     return res.ids;
+  }
+
+  /** Add a single marker, returning its id. Convenience over {@link addMarkers}. */
+  async addMarker(marker: Marker): Promise<string> {
+    const res = await CapacitorAppleMaps.addMarker({ id: this.id, marker });
+    return res.id;
   }
 
   /** Apply partial changes to existing markers, addressed by `markerId`. */
@@ -251,6 +293,11 @@ export class AppleMap {
     // a Vue ref, etc.) does not survive Capacitor's bridge serialization as an
     // array, and the native side would see no ids.
     return CapacitorAppleMaps.removeMarkers({ id: this.id, markerIds: [...ids] });
+  }
+
+  /** Remove a single marker by id. Convenience over {@link removeMarkers}. */
+  async removeMarker(id: string): Promise<void> {
+    return CapacitorAppleMaps.removeMarker({ id: this.id, markerId: id });
   }
 
   async enableClustering(): Promise<void> {
@@ -296,6 +343,31 @@ export class AppleMap {
     return CapacitorAppleMaps.enableCurrentLocation({ id: this.id, enabled });
   }
 
+  /** Overlay or hide live traffic conditions. */
+  async setTrafficEnabled(enabled: boolean): Promise<void> {
+    return CapacitorAppleMaps.setTrafficEnabled({ id: this.id, enabled });
+  }
+
+  /** Show or hide Apple's points of interest. */
+  async setPointsOfInterestEnabled(enabled: boolean): Promise<void> {
+    return CapacitorAppleMaps.setPointsOfInterestEnabled({ id: this.id, enabled });
+  }
+
+  /** Show or hide the compass (visible when the map is rotated). */
+  async setCompassEnabled(enabled: boolean): Promise<void> {
+    return CapacitorAppleMaps.setCompassEnabled({ id: this.id, enabled });
+  }
+
+  /** Show or hide the scale bar (visible while zooming). */
+  async setScaleEnabled(enabled: boolean): Promise<void> {
+    return CapacitorAppleMaps.setScaleEnabled({ id: this.id, enabled });
+  }
+
+  /** Force a light/dark appearance, or `default` to follow the device setting. */
+  async setColorScheme(colorScheme: MapColorScheme): Promise<void> {
+    return CapacitorAppleMaps.setColorScheme({ id: this.id, colorScheme });
+  }
+
   async setOnCameraIdleListener(callback?: (data: CameraIdleCallbackData) => void): Promise<void> {
     if (this.onCameraIdleListener) {
       await this.onCameraIdleListener.remove();
@@ -303,6 +375,18 @@ export class AppleMap {
     }
     if (callback) {
       this.onCameraIdleListener = await CapacitorAppleMaps.addListener('onCameraIdle', (data) => {
+        if (data.mapId === this.id) callback(data);
+      });
+    }
+  }
+
+  async setOnCameraMoveStartedListener(callback?: (data: CameraMoveStartedCallbackData) => void): Promise<void> {
+    if (this.onCameraMoveStartedListener) {
+      await this.onCameraMoveStartedListener.remove();
+      this.onCameraMoveStartedListener = undefined;
+    }
+    if (callback) {
+      this.onCameraMoveStartedListener = await CapacitorAppleMaps.addListener('onCameraMoveStarted', (data) => {
         if (data.mapId === this.id) callback(data);
       });
     }
@@ -356,6 +440,42 @@ export class AppleMap {
     }
   }
 
+  async setOnMarkerDragStartListener(callback?: (data: MarkerDragCallbackData) => void): Promise<void> {
+    if (this.onMarkerDragStartListener) {
+      await this.onMarkerDragStartListener.remove();
+      this.onMarkerDragStartListener = undefined;
+    }
+    if (callback) {
+      this.onMarkerDragStartListener = await CapacitorAppleMaps.addListener('onMarkerDragStart', (data) => {
+        if (data.mapId === this.id) callback(data);
+      });
+    }
+  }
+
+  async setOnMarkerDragListener(callback?: (data: MarkerDragCallbackData) => void): Promise<void> {
+    if (this.onMarkerDragListener) {
+      await this.onMarkerDragListener.remove();
+      this.onMarkerDragListener = undefined;
+    }
+    if (callback) {
+      this.onMarkerDragListener = await CapacitorAppleMaps.addListener('onMarkerDrag', (data) => {
+        if (data.mapId === this.id) callback(data);
+      });
+    }
+  }
+
+  async setOnMarkerDragEndListener(callback?: (data: MarkerDragCallbackData) => void): Promise<void> {
+    if (this.onMarkerDragEndListener) {
+      await this.onMarkerDragEndListener.remove();
+      this.onMarkerDragEndListener = undefined;
+    }
+    if (callback) {
+      this.onMarkerDragEndListener = await CapacitorAppleMaps.addListener('onMarkerDragEnd', (data) => {
+        if (data.mapId === this.id) callback(data);
+      });
+    }
+  }
+
   async setOnMapReadyListener(callback?: (data: MapReadyCallbackData) => void): Promise<void> {
     if (callback) {
       const handle = await CapacitorAppleMaps.addListener('onMapReady', (data) => {
@@ -374,15 +494,23 @@ export class AppleMap {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     await this.onCameraIdleListener?.remove();
+    await this.onCameraMoveStartedListener?.remove();
     await this.onMarkerClickListener?.remove();
     await this.onMapClickListener?.remove();
     await this.onMapLongClickListener?.remove();
     await this.onClusterClickListener?.remove();
+    await this.onMarkerDragStartListener?.remove();
+    await this.onMarkerDragListener?.remove();
+    await this.onMarkerDragEndListener?.remove();
     this.onCameraIdleListener = undefined;
+    this.onCameraMoveStartedListener = undefined;
     this.onMarkerClickListener = undefined;
     this.onMapClickListener = undefined;
     this.onMapLongClickListener = undefined;
     this.onClusterClickListener = undefined;
+    this.onMarkerDragStartListener = undefined;
+    this.onMarkerDragListener = undefined;
+    this.onMarkerDragEndListener = undefined;
     return CapacitorAppleMaps.destroy({ id: this.id });
   }
 }

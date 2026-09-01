@@ -112,6 +112,13 @@ class CapacitorAppleMapsTests: XCTestCase {
         XCTAssertNotEqual(empty?.markerId, "")
     }
 
+    func testMakeMarkerParsesDraggable() {
+        let coordinate = ["lat": 1.0, "lng": 2.0] as JSObject
+        XCTAssertTrue(Map.makeMarker(from: ["coordinate": coordinate, "draggable": true])?.isDraggable ?? false)
+        // Defaults off when omitted, preserving the non-draggable behavior.
+        XCTAssertFalse(Map.makeMarker(from: ["coordinate": coordinate])?.isDraggable ?? true)
+    }
+
     func testMakeMarkerReturnsNilWithoutCoordinate() {
         XCTAssertNil(Map.makeMarker(from: ["title": "no coord"]))
         XCTAssertNil(Map.makeMarker(from: ["coordinate": ["lat": 1.0] as JSObject]))
@@ -358,5 +365,54 @@ class CapacitorAppleMapsTests: XCTestCase {
         let saoPaulo = CLLocationCoordinate2D(latitude: -23.55, longitude: -46.63) // ~7000 km
         XCTAssertTrue(withinDistance(maxKm: 800, from: boston, to: portland))
         XCTAssertFalse(withinDistance(maxKm: 800, from: boston, to: saoPaulo))
+    }
+}
+
+// MARK: - Appearance toggles (#8)
+//
+// In an extension so the primary test-class body stays within SwiftLint's
+// type_body_length budget.
+extension CapacitorAppleMapsTests {
+
+    // MARK: Color scheme mapping (dark-mode override)
+
+    func testUserInterfaceStyleMapping() {
+        XCTAssertEqual(Map.userInterfaceStyle(from: "light"), .light)
+        XCTAssertEqual(Map.userInterfaceStyle(from: "Dark"), .dark)
+    }
+
+    func testUserInterfaceStyleDefaultsToUnspecified() {
+        XCTAssertEqual(Map.userInterfaceStyle(from: "default"), .unspecified)
+        XCTAssertEqual(Map.userInterfaceStyle(from: "nonsense"), .unspecified)
+    }
+
+    // MARK: Appearance config parsing
+
+    func testConfigParsesAppearanceToggles() throws {
+        let obj: JSObject = [
+            "center": ["lat": 0.0, "lng": 0.0] as JSObject,
+            "showsTraffic": true,
+            "showsPointsOfInterest": false,
+            "showsCompass": false,
+            "showsScale": true,
+            "colorScheme": "dark"
+        ]
+        let config = try AppleMapConfig(fromJSObject: obj)
+        XCTAssertTrue(config.showsTraffic)
+        XCTAssertFalse(config.showsPointsOfInterest)
+        XCTAssertFalse(config.showsCompass)
+        XCTAssertTrue(config.showsScale)
+        XCTAssertEqual(config.colorScheme, "dark")
+    }
+
+    /// The defaults mirror MapKit's own: traffic/scale off, POI/compass on,
+    /// system color scheme.
+    func testConfigAppearanceDefaults() throws {
+        let config = try AppleMapConfig(fromJSObject: ["center": ["lat": 0.0, "lng": 0.0] as JSObject])
+        XCTAssertFalse(config.showsTraffic)
+        XCTAssertTrue(config.showsPointsOfInterest)
+        XCTAssertTrue(config.showsCompass)
+        XCTAssertFalse(config.showsScale)
+        XCTAssertEqual(config.colorScheme, "default")
     }
 }

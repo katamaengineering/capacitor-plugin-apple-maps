@@ -103,8 +103,10 @@ const map =
 * [`getCameraPosition(...)`](#getcameraposition)
 * [`fitBounds(...)`](#fitbounds)
 * [`addMarkers(...)`](#addmarkers)
+* [`addMarker(...)`](#addmarker)
 * [`updateMarkers(...)`](#updatemarkers)
 * [`removeMarkers(...)`](#removemarkers)
+* [`removeMarker(...)`](#removemarker)
 * [`enableClustering(...)`](#enableclustering)
 * [`disableClustering(...)`](#disableclustering)
 * [`addPolylines(...)`](#addpolylines)
@@ -113,6 +115,11 @@ const map =
 * [`removeOverlays(...)`](#removeoverlays)
 * [`setMapType(...)`](#setmaptype)
 * [`enableCurrentLocation(...)`](#enablecurrentlocation)
+* [`setTrafficEnabled(...)`](#settrafficenabled)
+* [`setPointsOfInterestEnabled(...)`](#setpointsofinterestenabled)
+* [`setCompassEnabled(...)`](#setcompassenabled)
+* [`setScaleEnabled(...)`](#setscaleenabled)
+* [`setColorScheme(...)`](#setcolorscheme)
 * [`searchAutocomplete(...)`](#searchautocomplete)
 * [`searchPlaces(...)`](#searchplaces)
 * [`searchResolve(...)`](#searchresolve)
@@ -125,6 +132,10 @@ const map =
 * [`addListener('onMapClick', ...)`](#addlisteneronmapclick-)
 * [`addListener('onMapLongClick', ...)`](#addlisteneronmaplongclick-)
 * [`addListener('onClusterClick', ...)`](#addlisteneronclusterclick-)
+* [`addListener('onCameraMoveStarted', ...)`](#addlisteneroncameramovestarted-)
+* [`addListener('onMarkerDragStart', ...)`](#addlisteneronmarkerdragstart-)
+* [`addListener('onMarkerDrag', ...)`](#addlisteneronmarkerdrag-)
+* [`addListener('onMarkerDragEnd', ...)`](#addlisteneronmarkerdragend-)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
@@ -238,6 +249,23 @@ addMarkers(options: { id: string; markers: Marker[]; }) => Promise<{ ids: string
 --------------------
 
 
+### addMarker(...)
+
+```typescript
+addMarker(options: { id: string; marker: Marker; }) => Promise<{ id: string; }>
+```
+
+Add a single marker, returning its id. Convenience over {@link addMarkers}.
+
+| Param         | Type                                                               |
+| ------------- | ------------------------------------------------------------------ |
+| **`options`** | <code>{ id: string; marker: <a href="#marker">Marker</a>; }</code> |
+
+**Returns:** <code>Promise&lt;{ id: string; }&gt;</code>
+
+--------------------
+
+
 ### updateMarkers(...)
 
 ```typescript
@@ -262,6 +290,21 @@ removeMarkers(options: { id: string; markerIds: string[]; }) => Promise<void>
 | Param         | Type                                              |
 | ------------- | ------------------------------------------------- |
 | **`options`** | <code>{ id: string; markerIds: string[]; }</code> |
+
+--------------------
+
+
+### removeMarker(...)
+
+```typescript
+removeMarker(options: { id: string; markerId: string; }) => Promise<void>
+```
+
+Remove a single marker by id. Convenience over {@link removeMarkers}.
+
+| Param         | Type                                           |
+| ------------- | ---------------------------------------------- |
+| **`options`** | <code>{ id: string; markerId: string; }</code> |
 
 --------------------
 
@@ -380,6 +423,81 @@ user for location permission; without it MapKit shows nothing.
 | Param         | Type                                           |
 | ------------- | ---------------------------------------------- |
 | **`options`** | <code>{ id: string; enabled: boolean; }</code> |
+
+--------------------
+
+
+### setTrafficEnabled(...)
+
+```typescript
+setTrafficEnabled(options: { id: string; enabled: boolean; }) => Promise<void>
+```
+
+Overlay or hide live traffic conditions (`MKMapView.showsTraffic`).
+
+| Param         | Type                                           |
+| ------------- | ---------------------------------------------- |
+| **`options`** | <code>{ id: string; enabled: boolean; }</code> |
+
+--------------------
+
+
+### setPointsOfInterestEnabled(...)
+
+```typescript
+setPointsOfInterestEnabled(options: { id: string; enabled: boolean; }) => Promise<void>
+```
+
+Show or hide Apple's points of interest (a `.includingAll` / `.excludingAll` filter).
+
+| Param         | Type                                           |
+| ------------- | ---------------------------------------------- |
+| **`options`** | <code>{ id: string; enabled: boolean; }</code> |
+
+--------------------
+
+
+### setCompassEnabled(...)
+
+```typescript
+setCompassEnabled(options: { id: string; enabled: boolean; }) => Promise<void>
+```
+
+Show or hide the compass (`MKMapView.showsCompass`).
+
+| Param         | Type                                           |
+| ------------- | ---------------------------------------------- |
+| **`options`** | <code>{ id: string; enabled: boolean; }</code> |
+
+--------------------
+
+
+### setScaleEnabled(...)
+
+```typescript
+setScaleEnabled(options: { id: string; enabled: boolean; }) => Promise<void>
+```
+
+Show or hide the scale bar (`MKMapView.showsScale`).
+
+| Param         | Type                                           |
+| ------------- | ---------------------------------------------- |
+| **`options`** | <code>{ id: string; enabled: boolean; }</code> |
+
+--------------------
+
+
+### setColorScheme(...)
+
+```typescript
+setColorScheme(options: { id: string; colorScheme: MapColorScheme; }) => Promise<void>
+```
+
+Force a light/dark appearance, or `default` to follow the device setting.
+
+| Param         | Type                                                                                    |
+| ------------- | --------------------------------------------------------------------------------------- |
+| **`options`** | <code>{ id: string; colorScheme: <a href="#mapcolorscheme">MapColorScheme</a>; }</code> |
 
 --------------------
 
@@ -582,6 +700,70 @@ addListener(eventName: 'onClusterClick', listenerFunc: (data: ClusterClickCallba
 --------------------
 
 
+### addListener('onCameraMoveStarted', ...)
+
+```typescript
+addListener(eventName: 'onCameraMoveStarted', listenerFunc: (data: CameraMoveStartedCallbackData) => void) => Promise<PluginListenerHandle>
+```
+
+| Param              | Type                                                                                                       |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| **`eventName`**    | <code>'onCameraMoveStarted'</code>                                                                         |
+| **`listenerFunc`** | <code>(data: <a href="#cameramovestartedcallbackdata">CameraMoveStartedCallbackData</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
+### addListener('onMarkerDragStart', ...)
+
+```typescript
+addListener(eventName: 'onMarkerDragStart', listenerFunc: (data: MarkerDragCallbackData) => void) => Promise<PluginListenerHandle>
+```
+
+| Param              | Type                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| **`eventName`**    | <code>'onMarkerDragStart'</code>                                                             |
+| **`listenerFunc`** | <code>(data: <a href="#markerdragcallbackdata">MarkerDragCallbackData</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
+### addListener('onMarkerDrag', ...)
+
+```typescript
+addListener(eventName: 'onMarkerDrag', listenerFunc: (data: MarkerDragCallbackData) => void) => Promise<PluginListenerHandle>
+```
+
+| Param              | Type                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| **`eventName`**    | <code>'onMarkerDrag'</code>                                                                  |
+| **`listenerFunc`** | <code>(data: <a href="#markerdragcallbackdata">MarkerDragCallbackData</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
+### addListener('onMarkerDragEnd', ...)
+
+```typescript
+addListener(eventName: 'onMarkerDragEnd', listenerFunc: (data: MarkerDragCallbackData) => void) => Promise<PluginListenerHandle>
+```
+
+| Param              | Type                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| **`eventName`**    | <code>'onMarkerDragEnd'</code>                                                               |
+| **`listenerFunc`** | <code>(data: <a href="#markerdragcallbackdata">MarkerDragCallbackData</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
 ### Interfaces
 
 
@@ -591,20 +773,25 @@ Initial map configuration. The `width`/`height`/`x`/`y`/`devicePixelRatio`
 fields are populated by the {@link AppleMap} wrapper from the bound element's
 bounding rectangle - callers do not set them.
 
-| Prop                   | Type                                        | Description                                                                                                                                                                                                                                                                      |
-| ---------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`center`**           | <code><a href="#latlng">LatLng</a></code>   |                                                                                                                                                                                                                                                                                  |
-| **`zoom`**             | <code>number</code>                         | Google-style zoom (0 = whole world). Converted to an MKCoordinateRegion span natively.                                                                                                                                                                                           |
-| **`minZoom`**          | <code>number</code>                         | Hard zoom-out floor. Programmatic and gesture moves are clamped to this.                                                                                                                                                                                                         |
-| **`maxZoom`**          | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
-| **`clustering`**       | <code>boolean</code>                        | Start with clustering enabled, so markers added later cluster on their first render instead of briefly appearing as individual pins. Equivalent to calling {@link AppleMap.enableClustering} before any {@link AppleMap.addMarkers}, but without the flash. Defaults to `false`. |
-| **`mapType`**          | <code><a href="#maptype">MapType</a></code> | Base map imagery. Defaults to `standard`.                                                                                                                                                                                                                                        |
-| **`showInfoWindows`**  | <code>boolean</code>                        | Show MapKit's native callout bubble (title + optional snippet) when a marker with a `title` is tapped. Defaults to `false`, which preserves the tap-only behavior (`onMarkerClick` fires and the pin deselects immediately).                                                     |
-| **`width`**            | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
-| **`height`**           | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
-| **`x`**                | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
-| **`y`**                | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
-| **`devicePixelRatio`** | <code>number</code>                         |                                                                                                                                                                                                                                                                                  |
+| Prop                        | Type                                                      | Description                                                                                                                                                                                                                                                                      |
+| --------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`center`**                | <code><a href="#latlng">LatLng</a></code>                 |                                                                                                                                                                                                                                                                                  |
+| **`zoom`**                  | <code>number</code>                                       | Google-style zoom (0 = whole world). Converted to an MKCoordinateRegion span natively.                                                                                                                                                                                           |
+| **`minZoom`**               | <code>number</code>                                       | Hard zoom-out floor. Programmatic and gesture moves are clamped to this.                                                                                                                                                                                                         |
+| **`maxZoom`**               | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
+| **`clustering`**            | <code>boolean</code>                                      | Start with clustering enabled, so markers added later cluster on their first render instead of briefly appearing as individual pins. Equivalent to calling {@link AppleMap.enableClustering} before any {@link AppleMap.addMarkers}, but without the flash. Defaults to `false`. |
+| **`mapType`**               | <code><a href="#maptype">MapType</a></code>               | Base map imagery. Defaults to `standard`.                                                                                                                                                                                                                                        |
+| **`showInfoWindows`**       | <code>boolean</code>                                      | Show MapKit's native callout bubble (title + optional snippet) when a marker with a `title` is tapped. Defaults to `false`, which preserves the tap-only behavior (`onMarkerClick` fires and the pin deselects immediately).                                                     |
+| **`showsTraffic`**          | <code>boolean</code>                                      | Overlay live traffic conditions (`MKMapView.showsTraffic`). Defaults to `false`.                                                                                                                                                                                                 |
+| **`showsPointsOfInterest`** | <code>boolean</code>                                      | Show Apple's points of interest (shops, parks, …). Maps to a `MKPointOfInterestFilter` of `.includingAll` / `.excludingAll`. Defaults to `true` (MapKit's default).                                                                                                              |
+| **`showsCompass`**          | <code>boolean</code>                                      | Show the compass when the map is rotated (`MKMapView.showsCompass`). Defaults to `true`.                                                                                                                                                                                         |
+| **`showsScale`**            | <code>boolean</code>                                      | Show the scale bar while zooming (`MKMapView.showsScale`). Defaults to `false`.                                                                                                                                                                                                  |
+| **`colorScheme`**           | <code><a href="#mapcolorscheme">MapColorScheme</a></code> | Force a light/dark appearance regardless of the device setting. Defaults to `default` (follow system).                                                                                                                                                                           |
+| **`width`**                 | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
+| **`height`**                | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
+| **`x`**                     | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
+| **`y`**                     | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
+| **`devicePixelRatio`**      | <code>number</code>                                       |                                                                                                                                                                                                                                                                                  |
 
 
 #### LatLng
@@ -660,6 +847,7 @@ The map's current camera, returned by {@link CapacitorAppleMapsPlugin.getCameraP
 | **`iconUrl`**    | <code>string</code>                             | Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`), an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. Omit it to get MapKit's native default pin.                                                                                                       |
 | **`iconSize`**   | <code>{ width: number; height: number; }</code> | Logical size in points.                                                                                                                                                                                                                                                                        |
 | **`markerId`**   | <code>string</code>                             | Caller-supplied stable id. When set it is used verbatim (and echoed back from {@link CapacitorAppleMapsPlugin.addMarkers} and on tap) instead of a generated one, so the host can map pins back to its own domain objects and target them with {@link CapacitorAppleMapsPlugin.updateMarkers}. |
+| **`draggable`**  | <code>boolean</code>                            | Let the user drag this pin (press-and-hold, then move). Fires `onMarkerDragStart` / `onMarkerDrag` / `onMarkerDragEnd`. Defaults to `false`. A pin that is currently clustered can't be dragged until it separates into its own annotation.                                                    |
 
 
 #### MarkerUpdate
@@ -667,14 +855,15 @@ The map's current camera, returned by {@link CapacitorAppleMapsPlugin.getCameraP
 A partial change to an existing marker, addressed by its `markerId`. Omitted
 fields are left as-is; a moved marker animates to its new coordinate.
 
-| Prop             | Type                                            |
-| ---------------- | ----------------------------------------------- |
-| **`markerId`**   | <code>string</code>                             |
-| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |
-| **`title`**      | <code>string</code>                             |
-| **`snippet`**    | <code>string</code>                             |
-| **`iconUrl`**    | <code>string</code>                             |
-| **`iconSize`**   | <code>{ width: number; height: number; }</code> |
+| Prop             | Type                                            | Description                                 |
+| ---------------- | ----------------------------------------------- | ------------------------------------------- |
+| **`markerId`**   | <code>string</code>                             |                                             |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |                                             |
+| **`title`**      | <code>string</code>                             |                                             |
+| **`snippet`**    | <code>string</code>                             |                                             |
+| **`iconUrl`**    | <code>string</code>                             |                                             |
+| **`iconSize`**   | <code>{ width: number; height: number; }</code> |                                             |
+| **`draggable`**  | <code>boolean</code>                            | Enable or disable dragging for this marker. |
 
 
 #### Polyline
@@ -821,6 +1010,33 @@ A tap on a cluster bubble. Carries the members it groups.
 | **`markerIds`** | <code>string[]</code> | The `markerId`s of the clustered markers. |
 
 
+#### CameraMoveStartedCallbackData
+
+Fired once when the camera begins moving, before `onCameraIdle`. `isGesture`
+distinguishes a user pan/zoom/rotate from a programmatic move (a
+{@link CapacitorAppleMapsPlugin.setCamera} / {@link CapacitorAppleMapsPlugin.fitBounds}
+call). Mirrors `@capacitor/google-maps`'s `onCameraMoveStarted`.
+
+| Prop            | Type                 | Description                                                        |
+| --------------- | -------------------- | ------------------------------------------------------------------ |
+| **`mapId`**     | <code>string</code>  |                                                                    |
+| **`isGesture`** | <code>boolean</code> | `true` for a user gesture, `false` for a programmatic camera move. |
+
+
+#### MarkerDragCallbackData
+
+A drag on a `draggable` marker, carrying the marker's live coordinate.
+`onMarkerDragStart` fires once when the drag begins, `onMarkerDrag` fires
+continuously as it moves, and `onMarkerDragEnd` fires once on release.
+
+| Prop            | Type                |
+| --------------- | ------------------- |
+| **`mapId`**     | <code>string</code> |
+| **`markerId`**  | <code>string</code> |
+| **`latitude`**  | <code>number</code> |
+| **`longitude`** | <code>number</code> |
+
+
 ### Type Aliases
 
 
@@ -830,6 +1046,14 @@ Base map imagery. Maps to `MKMapType`; the `*Flyover` variants render 3D
 satellite imagery where Apple has it. Defaults to `standard`.
 
 <code>'standard' | 'satellite' | 'hybrid' | 'satelliteFlyover' | 'hybridFlyover' | 'mutedStandard'</code>
+
+
+#### MapColorScheme
+
+Forces the map's light/dark appearance regardless of the device setting, via
+`overrideUserInterfaceStyle`. `default` follows the system.
+
+<code>'default' | 'light' | 'dark'</code>
 
 
 #### MapLongClickCallbackData

@@ -20,7 +20,15 @@
   const markers = [
     { markerId: 'sf', coordinate: center, title: 'San Francisco', snippet: 'City Hall area' },
     { markerId: 'ggb', coordinate: { lat: 37.8199, lng: -122.4783 }, title: 'Golden Gate Bridge', snippet: '1937' },
-    { markerId: 'wharf', coordinate: { lat: 37.8087, lng: -122.4098 }, title: "Fisherman's Wharf", snippet: 'Pier 39' },
+    {
+      markerId: 'wharf',
+      coordinate: { lat: 37.8087, lng: -122.4098 },
+      title: "Fisherman's Wharf",
+      snippet: 'Pier 39 · drag me',
+      // Press-and-hold, then drag, to move this pin (iOS). Zoom in first if it's
+      // clustered with the others. Both plugins accept the `draggable` field.
+      draggable: true,
+    },
   ];
 
   let element = $state<HTMLElement>();
@@ -37,6 +45,9 @@
   let overlayIds = $state<string[]>([]);
   // Tracks the current base map type; the toggle label reflects the *next* action.
   let satellite = $state(false);
+  // Appearance-toggle state, so each button's label reflects the *next* action.
+  let traffic = $state(false);
+  let dark = $state(false);
 
   // Android draws the Google map BEHIND the webview and shows it through a
   // transparent element, so every layer above the map must be see-through or you
@@ -128,8 +139,23 @@
     });
 
     await step('fitBounds', async () => {
-      await applyFitBounds();
+      // Exercise the coordinate-array overload: pass the raw pins and let the
+      // wrapper compute the bounding box.
+      await am.fitBounds(
+        markers.map((m) => m.coordinate),
+        48,
+        true,
+      );
       return 'ok';
+    });
+
+    await step('addMarker + removeMarker', async () => {
+      const id = await am.addMarker({
+        coordinate: { lat: center.lat - 0.02, lng: center.lng - 0.02 },
+        title: 'Temp pin',
+      });
+      await am.removeMarker(id);
+      return `id ${id.slice(0, 8)}…`;
     });
 
     await step('updateMarkers', async () => {
@@ -137,6 +163,31 @@
         { markerId: 'sf', coordinate: { lat: center.lat + 0.01, lng: center.lng }, title: 'San Francisco (moved)' },
       ]);
       return 'ok';
+    });
+
+    await step('appearance toggles', async () => {
+      // Touch each appearance setter once, then restore the visible defaults so
+      // the map looks normal after the smoke run (compass on, POI on, standard
+      // color scheme). Scale is left on so the config vs runtime paths differ.
+      await am.setTrafficEnabled(true);
+      await am.setPointsOfInterestEnabled(false);
+      await am.setCompassEnabled(false);
+      await am.setScaleEnabled(true);
+      await am.setColorScheme('dark');
+      await am.setColorScheme('default');
+      await am.setCompassEnabled(true);
+      await am.setPointsOfInterestEnabled(true);
+      await am.setTrafficEnabled(false);
+      return 'traffic/POI/compass/scale/colorScheme';
+    });
+
+    await step('draggable toggle', async () => {
+      // The 'wharf' pin is draggable from create; toggle it off and back on via
+      // updateMarkers to exercise that path. Actual dragging needs a real touch,
+      // so the on-device tester drags the pin and watches the `note` line.
+      await am.updateMarkers([{ markerId: 'wharf', draggable: false }]);
+      await am.updateMarkers([{ markerId: 'wharf', draggable: true }]);
+      return 'wharf drag-and-drop ready';
     });
   }
 
@@ -175,6 +226,28 @@
     }
   }
 
+  async function toggleTraffic() {
+    if (!appleMap) return;
+    try {
+      await appleMap.setTrafficEnabled(!traffic);
+      traffic = !traffic;
+      note = traffic ? 'traffic on' : 'traffic off';
+    } catch (err) {
+      note = `setTrafficEnabled failed: ${errMsg(err)}`;
+    }
+  }
+
+  async function toggleColorScheme() {
+    if (!appleMap) return;
+    try {
+      await appleMap.setColorScheme(dark ? 'default' : 'dark');
+      dark = !dark;
+      note = dark ? 'dark map' : 'system map';
+    } catch (err) {
+      note = `setColorScheme failed: ${errMsg(err)}`;
+    }
+  }
+
   onMount(async () => {
     if (isAndroid) document.documentElement.classList.add('android-underlay');
     if (needsKey || !element) return;
@@ -186,7 +259,17 @@
         appleMap = await AppleMap.create({
           id: 'map',
           element,
-          config: { center, zoom: 11, minZoom: 3, maxZoom: 18, clustering: true, showInfoWindows: true },
+          config: {
+            center,
+            zoom: 11,
+            minZoom: 3,
+            maxZoom: 18,
+            clustering: true,
+            showInfoWindows: true,
+            // Exercise the create-time appearance path (the runtime setters are
+            // covered by the smoke sequence and the control-bar buttons).
+            showsScale: true,
+          },
           forceCreate: true,
         });
         map = appleMap;
@@ -206,6 +289,20 @@
         });
         await appleMap.setOnClusterClickListener((data) => {
           note = `cluster ×${data.count}`;
+        });
+        await appleMap.setOnCameraMoveStartedListener((data) => {
+          note = data.isGesture ? 'camera move (gesture)' : 'camera move (programmatic)';
+        });
+
+        // Draggable-marker events (the 'wharf' pin opted in via `draggable`).
+        await appleMap.setOnMarkerDragStartListener((data) => {
+          note = `drag start ${data.markerId}`;
+        });
+        await appleMap.setOnMarkerDragListener((data) => {
+          note = `dragging @ ${data.latitude.toFixed(3)},${data.longitude.toFixed(3)}`;
+        });
+        await appleMap.setOnMarkerDragEndListener((data) => {
+          note = `drag end @ ${data.latitude.toFixed(3)},${data.longitude.toFixed(3)}`;
         });
 
         // Kick off the automatic smoke sequence.
@@ -247,6 +344,8 @@
       <!-- iOS-only control bar: every button calls the plugin and reports via `note`. -->
       <div class="controls">
         <button onclick={toggleMapType}>{satellite ? 'Standard' : 'Satellite'}</button>
+        <button onclick={toggleTraffic}>{traffic ? 'Traffic off' : 'Traffic'}</button>
+        <button onclick={toggleColorScheme}>{dark ? 'System' : 'Dark'}</button>
         <button onclick={fitBoundsButton}>Fit bounds</button>
         <button onclick={clearOverlays} disabled={overlayIds.length === 0}>Clear overlays</button>
         <button onclick={myLocation}>My location</button>
