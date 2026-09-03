@@ -2,12 +2,17 @@
   import { onMount, onDestroy } from 'svelte';
   import { Capacitor } from '@capacitor/core';
   import { AppleMap } from 'capacitor-plugin-apple-maps';
-  import { GoogleMap } from '@capacitor/google-maps';
+  import { GoogleMap, LatLngBounds, MapType } from '@capacitor/google-maps';
 
-  // ── The only platform branch in the whole app ────────────────────────────
+  // ── Provider pick ─────────────────────────────────────────────────────────
   // Both plugins expose the same create/addMarkers/listeners API, so the app
-  // picks a provider once and never branches again. Apple Maps needs no key;
-  // Google Maps needs one on Android (AndroidManifest) and web (below).
+  // picks a provider once. Apple Maps needs no key; Google Maps needs one on
+  // Android (AndroidManifest) and web (below). Each branch then exercises the
+  // *same* feature set — overlays, draggable pins, a control bar, listeners and
+  // a smoke checklist — so the two providers stay at parity. A few methods have
+  // no native Google equivalent (runtime color scheme, long-press, snapshot,
+  // updateMarkers); those are the only places the Google branch does less, and
+  // each is called out in a comment where it would otherwise appear.
   const isIOS = Capacitor.getPlatform() === 'ios';
   const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '';
 
@@ -25,14 +30,15 @@
       coordinate: { lat: 37.8087, lng: -122.4098 },
       title: "Fisherman's Wharf",
       snippet: 'Pier 39 · drag me',
-      // Press-and-hold, then drag, to move this pin (iOS). Zoom in first if it's
-      // clustered with the others. Both plugins accept the `draggable` field.
+      // Press-and-hold, then drag, to move this pin (both providers). Zoom in
+      // first if it's clustered with the others. Both plugins accept `draggable`.
       draggable: true,
     },
     {
       // A standalone pin, placed well south of the SF trio so it never clusters
       // (a lone pin always renders individually) — tap it and its info window
-      // (native callout) pops up. Requires `showInfoWindows: true` on the map.
+      // (native callout) pops up. On iOS this needs `showInfoWindows: true`;
+      // Google shows the title/snippet callout on tap with no extra config.
       markerId: 'info-demo',
       coordinate: { lat: 37.6213, lng: -122.379 },
       title: 'Tap me',
@@ -43,15 +49,25 @@
   let element = $state<HTMLElement>();
   // Shared handle used by the platform-agnostic paths (create/destroy/markers).
   let map: AppleMap | GoogleMap | undefined;
-  // Apple-only handle, assigned only on iOS, so the new MapKit-only calls
-  // type-check without casting the shared union everywhere.
+  // Per-provider handles, assigned only on their platform, so provider-only
+  // calls type-check without casting the shared union everywhere.
   let appleMap: AppleMap | undefined;
+  let googleMap: GoogleMap | undefined;
   let note = $state('');
 
-  // Results of the iOS smoke sequence, rendered as a ✓/✗ checklist.
+  // Results of the smoke sequence, rendered as a ✓/✗ checklist.
   let steps = $state<{ name: string; ok: boolean; detail: string }[]>([]);
-  // Overlay ids returned by the smoke sequence, so "Clear overlays" can undo them.
+  // Apple returns one flat id list and removes them all with removeOverlays.
   let overlayIds = $state<string[]>([]);
+  // Google removes overlays per type, so track the three id lists separately.
+  let googleOverlays = $state<{ polylines: string[]; polygons: string[]; circles: string[] }>({
+    polylines: [],
+    polygons: [],
+    circles: [],
+  });
+  const googleOverlayCount = $derived(
+    googleOverlays.polylines.length + googleOverlays.polygons.length + googleOverlays.circles.length,
+  );
   // Tracks the current base map type; the toggle label reflects the *next* action.
   let satellite = $state(false);
   // Appearance-toggle state, so each button's label reflects the *next* action.
@@ -67,7 +83,7 @@
 
   // A bounds box around the 3 markers: southwest = min lat/lng, northeast =
   // max lat/lng, center = the average. Used by fitBounds when no live bounds
-  // are handy.
+  // are handy. Shape matches both providers' LatLngBounds fields.
   function markerBounds() {
     const lats = markers.map((m) => m.coordinate.lat);
     const lngs = markers.map((m) => m.coordinate.lng);
@@ -92,26 +108,10 @@
     }
   }
 
-  // The actual camera move, shared by the smoke sequence (which records a step)
-  // and the "Fit bounds" button (which reports via `note`, so repeated taps
-  // don't pollute the one-shot smoke checklist).
-  async function applyFitBounds() {
-    if (!appleMap) return;
-    await appleMap.fitBounds(markerBounds(), 48, true);
-  }
-
-  async function fitBoundsButton() {
-    try {
-      await applyFitBounds();
-      note = 'fit bounds';
-    } catch (err) {
-      note = `fitBounds failed: ${errMsg(err)}`;
-    }
-  }
-
-  // The automatic iOS-only exercise: touch each new AppleMap method once and
-  // report the outcome, keeping any overlay ids for later cleanup.
-  async function runSmokeSequence(am: AppleMap) {
+  // ── iOS smoke sequence ──────────────────────────────────────────────────
+  // Touch each new AppleMap method once and report the outcome, keeping any
+  // overlay ids for later cleanup.
+  async function runAppleSmokeSequence(am: AppleMap) {
     await step('getCameraPosition', async () => {
       const pos = await am.getCameraPosition();
       return `zoom ${pos.zoom.toFixed(1)}`;
@@ -214,7 +214,95 @@
     });
   }
 
-  // ── iOS control-bar actions ──────────────────────────────────────────────
+  // ── Google smoke sequence ─────────────────────────────────────────────────
+  // The same exercise against GoogleMap. Steps line up with the Apple list;
+  // where Google's native API has no equivalent the step name says "(n/a on
+  // Google)" so the two checklists read side by side.
+  async function runGoogleSmokeSequence(gm: GoogleMap) {
+    await step('getMapType', async () => {
+      // Google has no getCameraPosition; getMapType is the closest read-back.
+      const type = await gm.getMapType();
+      return `${type}`;
+    });
+
+    await step('addPolylines', async () => {
+      const ids = await gm.addPolylines([
+        { path: markers.map((m) => m.coordinate), strokeColor: '#2563eb', strokeWeight: 4, strokeOpacity: 0.9 },
+      ]);
+      googleOverlays = { ...googleOverlays, polylines: [...googleOverlays.polylines, ...ids] };
+      return `${ids.length} id${ids.length === 1 ? '' : 's'}`;
+    });
+
+    await step('addPolygons', async () => {
+      const ids = await gm.addPolygons([
+        {
+          paths: markers.map((m) => m.coordinate),
+          strokeColor: '#2563eb',
+          strokeWeight: 2,
+          fillColor: '#3b82f6',
+          fillOpacity: 0.2,
+        },
+      ]);
+      googleOverlays = { ...googleOverlays, polygons: [...googleOverlays.polygons, ...ids] };
+      return `${ids.length} id${ids.length === 1 ? '' : 's'}`;
+    });
+
+    await step('addCircles', async () => {
+      const ids = await gm.addCircles([
+        { center, radius: 1500, strokeColor: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.2 },
+      ]);
+      googleOverlays = { ...googleOverlays, circles: [...googleOverlays.circles, ...ids] };
+      return `${ids.length} id${ids.length === 1 ? '' : 's'}`;
+    });
+
+    await step('fitBounds', async () => {
+      // Google's fitBounds takes a LatLngBounds + pixel padding (no animate flag).
+      await gm.fitBounds(new LatLngBounds(markerBounds()), 48);
+      return 'ok';
+    });
+
+    await step('addMarker + removeMarker', async () => {
+      const id = await gm.addMarker({
+        coordinate: { lat: center.lat - 0.02, lng: center.lng - 0.02 },
+        title: 'Temp pin',
+      });
+      await gm.removeMarker(id);
+      return `id ${id.slice(0, 8)}…`;
+    });
+
+    // Google has no updateMarkers; the draggable 'wharf' pin gets its flag at
+    // create time instead, and drag events are wired up in onMount.
+    steps = [...steps, { name: 'updateMarkers (n/a on Google)', ok: true, detail: 'set at create' }];
+
+    await step('clustering toggle', async () => {
+      // Apple's "appearance toggles" step has no Google analogue; exercise the
+      // clustering API instead (also what makes the cluster listener fire).
+      await gm.disableClustering();
+      await gm.enableClustering(2);
+      return 'off → on';
+    });
+
+    await step('traffic + indoor toggle', async () => {
+      // The subset of appearance setters Google exposes; restore both after.
+      await gm.enableTrafficLayer(true);
+      await gm.enableIndoorMaps(true);
+      await gm.enableIndoorMaps(false);
+      await gm.enableTrafficLayer(false);
+      return 'traffic/indoor';
+    });
+
+    await step('padding', async () => {
+      // Google has setPadding but no granular gesture setter (only enable/
+      // disableTouch, which is all-or-nothing), so pan/zoom stay on.
+      await gm.setPadding({ top: 8, left: 8, right: 8, bottom: 8 });
+      return 'ok';
+    });
+
+    // Google has no takeSnapshot.
+    steps = [...steps, { name: 'takeSnapshot (n/a on Google)', ok: true, detail: '—' }];
+  }
+
+  // ── Apple control-bar actions ─────────────────────────────────────────────
   async function toggleMapType() {
     if (!appleMap) return;
     try {
@@ -223,6 +311,16 @@
       note = satellite ? 'satellite view' : 'standard view';
     } catch (err) {
       note = `setMapType failed: ${errMsg(err)}`;
+    }
+  }
+
+  async function fitBoundsButton() {
+    if (!appleMap) return;
+    try {
+      await appleMap.fitBounds(markerBounds(), 48, true);
+      note = 'fit bounds';
+    } catch (err) {
+      note = `fitBounds failed: ${errMsg(err)}`;
     }
   }
 
@@ -268,6 +366,67 @@
       note = dark ? 'dark map' : 'system map';
     } catch (err) {
       note = `setColorScheme failed: ${errMsg(err)}`;
+    }
+  }
+
+  // ── Google control-bar actions ────────────────────────────────────────────
+  // Same buttons as iOS, minus "Dark" — Google's native plugin has no runtime
+  // color-scheme setter (dark styling is a create-time `styles`/`mapId` option).
+  async function gToggleMapType() {
+    if (!googleMap) return;
+    try {
+      await googleMap.setMapType(satellite ? MapType.Normal : MapType.Hybrid);
+      satellite = !satellite;
+      note = satellite ? 'satellite view' : 'standard view';
+    } catch (err) {
+      note = `setMapType failed: ${errMsg(err)}`;
+    }
+  }
+
+  async function gToggleTraffic() {
+    if (!googleMap) return;
+    try {
+      await googleMap.enableTrafficLayer(!traffic);
+      traffic = !traffic;
+      note = traffic ? 'traffic on' : 'traffic off';
+    } catch (err) {
+      note = `enableTrafficLayer failed: ${errMsg(err)}`;
+    }
+  }
+
+  async function gFitBounds() {
+    if (!googleMap) return;
+    try {
+      await googleMap.fitBounds(new LatLngBounds(markerBounds()), 48);
+      note = 'fit bounds';
+    } catch (err) {
+      note = `fitBounds failed: ${errMsg(err)}`;
+    }
+  }
+
+  async function gClearOverlays() {
+    if (!googleMap || googleOverlayCount === 0) return;
+    try {
+      const { polylines, polygons, circles } = googleOverlays;
+      if (polylines.length) await googleMap.removePolylines(polylines);
+      if (polygons.length) await googleMap.removePolygons(polygons);
+      if (circles.length) await googleMap.removeCircles(circles);
+      note = `cleared ${googleOverlayCount} overlays`;
+      googleOverlays = { polylines: [], polygons: [], circles: [] };
+    } catch (err) {
+      note = `remove overlays failed: ${errMsg(err)}`;
+    }
+  }
+
+  async function gMyLocation() {
+    if (!googleMap) return;
+    try {
+      // On Android this needs the location permission in the manifest to show
+      // the blue dot; the call itself is harmless without it.
+      await googleMap.enableCurrentLocation(true);
+      note = 'current location enabled';
+    } catch (err) {
+      note = `enableCurrentLocation failed: ${errMsg(err)}`;
     }
   }
 
@@ -332,15 +491,68 @@
         });
 
         // Kick off the automatic smoke sequence.
-        await runSmokeSequence(appleMap);
+        await runAppleSmokeSequence(appleMap);
       } else {
-        map = await GoogleMap.create({ id: 'map', element, apiKey: googleKey, config: { center, zoom: 11 }, forceCreate: true });
+        googleMap = await GoogleMap.create({
+          id: 'map',
+          element,
+          apiKey: googleKey,
+          config: { center, zoom: 11, minZoom: 3, maxZoom: 18 },
+          forceCreate: true,
+        });
+        map = googleMap;
 
         // No iconUrl needed — each provider draws its own default pin.
-        await map.addMarkers(markers);
-        await map.setOnMarkerClickListener((data) => {
+        await googleMap.addMarkers(markers);
+        // Mirror the Apple map's `clustering: true`. minClusterSize 2 makes the
+        // nearby SF pins cluster at zoom 11 so the cluster listener has something
+        // to fire on. Zoom in to separate (and to drag the 'wharf' pin).
+        await googleMap.enableClustering(2);
+
+        // The same listeners as iOS, reporting through the single `note` string.
+        // Google exposes extra overlay-click listeners and no map long-press.
+        await googleMap.setOnMarkerClickListener((data) => {
           note = `tapped ${data.title || data.markerId}`;
         });
+        await googleMap.setOnInfoWindowClickListener((data) => {
+          note = `info window tapped: ${data.title || data.markerId}`;
+        });
+        await googleMap.setOnMapClickListener((data) => {
+          note = `map click @ ${data.latitude.toFixed(3)},${data.longitude.toFixed(3)}`;
+        });
+        // Google has no onMapLongClick; that listener is iOS-only.
+        await googleMap.setOnClusterClickListener((data) => {
+          note = `cluster ×${data.size}`;
+        });
+        await googleMap.setOnCameraMoveStartedListener((data) => {
+          note = data.isGesture ? 'camera move (gesture)' : 'camera move (programmatic)';
+        });
+
+        // Overlay-click listeners (Google draws these; the smoke run adds the
+        // overlays they fire on).
+        await googleMap.setOnPolylineClickListener((data) => {
+          note = `polyline tapped ${data.polylineId.slice(0, 8)}…`;
+        });
+        await googleMap.setOnPolygonClickListener((data) => {
+          note = `polygon tapped ${data.polygonId.slice(0, 8)}…`;
+        });
+        await googleMap.setOnCircleClickListener((data) => {
+          note = `circle tapped ${data.circleId.slice(0, 8)}…`;
+        });
+
+        // Draggable-marker events (the 'wharf' pin opted in via `draggable`).
+        await googleMap.setOnMarkerDragStartListener((data) => {
+          note = `drag start ${data.markerId}`;
+        });
+        await googleMap.setOnMarkerDragListener((data) => {
+          note = `dragging @ ${data.latitude.toFixed(3)},${data.longitude.toFixed(3)}`;
+        });
+        await googleMap.setOnMarkerDragEndListener((data) => {
+          note = `drag end @ ${data.latitude.toFixed(3)},${data.longitude.toFixed(3)}`;
+        });
+
+        // Kick off the automatic smoke sequence.
+        await runGoogleSmokeSequence(googleMap);
       }
     } catch (err) {
       note = `map error: ${errMsg(err)}`;
@@ -363,18 +575,32 @@
       <p>Set <code>VITE_GOOGLE_MAPS_API_KEY</code> (and the AndroidManifest key) to show Google Maps.</p>
       <p>iOS needs no key — run it there to see Apple Maps.</p>
     </div>
-  {:else if isIOS}
+  {:else}
     <div class="map-wrap">
-      <capacitor-apple-map bind:this={element} id="map" class="map"></capacitor-apple-map>
+      {#if isIOS}
+        <capacitor-apple-map bind:this={element} id="map" class="map"></capacitor-apple-map>
+      {:else}
+        <capacitor-google-map bind:this={element} id="map" class="map"></capacitor-google-map>
+      {/if}
 
-      <!-- iOS-only control bar: every button calls the plugin and reports via `note`. -->
+      <!-- Control bar: every button calls the plugin and reports via `note`.
+           Both providers share the bar; Apple adds a "Dark" toggle it alone
+           supports at runtime. -->
       <div class="controls">
-        <button onclick={toggleMapType}>{satellite ? 'Standard' : 'Satellite'}</button>
-        <button onclick={toggleTraffic}>{traffic ? 'Traffic off' : 'Traffic'}</button>
-        <button onclick={toggleColorScheme}>{dark ? 'System' : 'Dark'}</button>
-        <button onclick={fitBoundsButton}>Fit bounds</button>
-        <button onclick={clearOverlays} disabled={overlayIds.length === 0}>Clear overlays</button>
-        <button onclick={myLocation}>My location</button>
+        {#if isIOS}
+          <button onclick={toggleMapType}>{satellite ? 'Standard' : 'Satellite'}</button>
+          <button onclick={toggleTraffic}>{traffic ? 'Traffic off' : 'Traffic'}</button>
+          <button onclick={toggleColorScheme}>{dark ? 'System' : 'Dark'}</button>
+          <button onclick={fitBoundsButton}>Fit bounds</button>
+          <button onclick={clearOverlays} disabled={overlayIds.length === 0}>Clear overlays</button>
+          <button onclick={myLocation}>My location</button>
+        {:else}
+          <button onclick={gToggleMapType}>{satellite ? 'Standard' : 'Satellite'}</button>
+          <button onclick={gToggleTraffic}>{traffic ? 'Traffic off' : 'Traffic'}</button>
+          <button onclick={gFitBounds}>Fit bounds</button>
+          <button onclick={gClearOverlays} disabled={googleOverlayCount === 0}>Clear overlays</button>
+          <button onclick={gMyLocation}>My location</button>
+        {/if}
       </div>
 
       <!-- Smoke-test checklist + latest gesture note, translucent over the map. -->
@@ -393,8 +619,6 @@
         {/if}
       </div>
     </div>
-  {:else}
-    <capacitor-google-map bind:this={element} id="map" class="map"></capacitor-google-map>
   {/if}
 </div>
 
@@ -433,7 +657,7 @@
     font-size: 13px;
     opacity: 0.9;
   }
-  /* Holds the map plus the iOS overlays; the map still fills all of it. */
+  /* Holds the map plus the overlays; the map still fills all of it. */
   .map-wrap {
     position: relative;
     flex: 1;
