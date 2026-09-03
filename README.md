@@ -10,11 +10,11 @@
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 Renders a **native Apple Maps (MapKit)** view on iOS from a Capacitor app. The
-`AppleMap` wrapper class deliberately mirrors the core subset of
+`AppleMap` wrapper class deliberately mirrors
 [`@capacitor/google-maps`](https://github.com/ionic-team/capacitor-plugins/tree/main/google-maps)'
-`GoogleMap` API - create, camera, markers, clustering, and camera-idle /
-marker-click events - so an app can route **iOS to Apple Maps and Android/web to
-Google Maps** behind one thin abstraction.
+`GoogleMap` API - camera control, markers, clustering, shape overlays, place
+search, and the map/marker/camera events - so an app can route **iOS to Apple
+Maps and Android/web to Google Maps** behind one thin abstraction.
 
 - **iOS only.** MapKit is a native iOS framework and needs no API key. On web
   and Android every method rejects with `unavailable` - the host app is expected
@@ -22,6 +22,24 @@ Google Maps** behind one thin abstraction.
 - **No external dependencies.** Uses the system `MapKit` framework; the only SPM
   dependency is `capacitor-swift-pm`.
 - Requires **iOS 15+** (matches the Capacitor 8 baseline).
+
+## Features
+
+- **Camera** - `setCamera`, `getCameraPosition`, `getMapBounds`, and
+  `fitBounds` (from a `LatLngBounds` or a raw `LatLng[]`), with approximated
+  Google-style zoom and a `minZoom` floor.
+- **Markers** - add/update/remove (batch or single), custom icons, stable
+  caller ids, draggable pins, clustering, and optional info-window bubbles.
+- **Shape overlays** - polylines, polygons (with holes), and circles, removable
+  by id.
+- **Place search** - keyless `MKLocalSearch` / `MKLocalSearchCompleter`
+  autocomplete, one-shot search, and coordinate resolution.
+- **Appearance & controls** - map type, traffic, points of interest, compass,
+  scale, forced color scheme, per-gesture toggles, and edge padding.
+- **Events** - camera idle / move-started, marker click, info-window click,
+  map click / long-click, cluster click, and marker drag start/move/end.
+- **`takeSnapshot`** - render the visible map (pins + overlays) to a PNG
+  `data:` URL.
 
 ## Install
 
@@ -68,6 +86,32 @@ Supply an `iconUrl` to use your own art, resolved from three sources: a **bundle
 web asset** filename (copied into the app bundle under `public/` - e.g.
 `marker-blue.png` from your web `static/`), an **`https:` URL**, or a **`data:`
 URI**. SVG is not supported.
+
+### Overlays
+
+```ts
+const [lineId] = await map.addPolylines([
+  { path: [{ lat: 42.36, lng: -71.06 }, { lat: 42.37, lng: -71.05 }], strokeColor: '#ff3b30', strokeWeight: 4 },
+]);
+await map.addCircles([{ center: { lat: 42.36, lng: -71.06 }, radius: 500, fillColor: '#007aff33' }]);
+await map.removeOverlays([lineId]);
+```
+
+### Place search
+
+No API key required - both use MapKit's on-device search. These are standalone
+exports, not map methods (they need no map instance).
+
+```ts
+import { searchAutocomplete, searchPlaces, searchResolve } from 'capacitor-plugin-apple-maps';
+
+// Type-ahead suggestions, then resolve one to coordinates.
+const { results } = await searchAutocomplete({ query: 'coffee' });
+const place = await searchResolve({ id: results[0].id });
+
+// Or a one-shot search that returns coordinates up front.
+const { results: places } = await searchPlaces({ query: 'Fenway Park', limit: 5 });
+```
 
 ### Sharing one abstraction with `@capacitor/google-maps`
 
