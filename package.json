@@ -61,7 +61,7 @@
     "@ionic/swiftlint-config": "^2.0.0",
     "all-contributors-cli": "^6.26.1",
     "eslint": "^8.57.1",
-    "marked": "^12.0.2",
+    "marked": "^18.0.11",
     "np": "^12.0.1",
     "prettier": "^3.6.2",
     "rimraf": "^6.1.0",
