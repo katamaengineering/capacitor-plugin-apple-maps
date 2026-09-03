@@ -28,8 +28,18 @@
   },
   "keywords": [
     "capacitor",
+    "capacitor-plugin",
     "plugin",
-    "native"
+    "native",
+    "ios",
+    "apple-maps",
+    "applemaps",
+    "mapkit",
+    "maps",
+    "map",
+    "google-maps",
+    "ionic",
+    "cordova"
   ],
   "scripts": {
     "verify": "npm run verify:ios && npm run verify:web",
