@@ -92,8 +92,17 @@ extension Map {
                 scrollView.isScrollEnabled = true
                 let height = Double(scrollView.contentSize.height)
                 let width = Double(scrollView.contentSize.width)
-                let widthEqual = width == refWidth
-                let heightEqual = floor(height / 2) == refHeight || ceil(height / 2) == refHeight
+                // The element carries an inner 200%-tall spacer, so the child
+                // scroll view's contentSize is ~2x the element's size. Match with
+                // a 1pt tolerance rather than an exact / floor-ceil-to-integer
+                // check: on devices whose layout lands the element on a
+                // half-point (e.g. iPhone 17 Pro at 558.5pt) contentSize.height/2
+                // equals the element height exactly (1117/2 == 558.5), but the
+                // old integer floor(558.5)=558 / ceil=559 comparison missed it,
+                // leaving the map unmounted. Older devices happened to land on
+                // whole points, which is why the exact check worked there.
+                let widthEqual = abs(width - refWidth) <= 1.0
+                let heightEqual = abs(height / 2.0 - refHeight) <= 1.0
                 if widthEqual && heightEqual && item.tag < (self.targetView?.tag ?? Map.mapTag) {
                     return item
                 }

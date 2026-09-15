@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2]
+
+### Fixed
+
+- **Map no longer renders blank on devices with a fractional element height
+  (e.g. iPhone 17 Pro / iOS 27).** The native view is mounted by finding the
+  WebKit child scroll view whose `contentSize` is ~2× the map element, but the
+  height match used an integer `floor`/`ceil` comparison against the element
+  height. When layout lands the element on a half-point (558.5pt on iPhone 17
+  Pro), `contentSize.height / 2` equals the height exactly (1117 / 2 = 558.5) yet
+  `floor(558.5)=558` / `ceil(558.5)=559` matched neither, so `getTargetContainer`
+  returned nil and the `MKMapView` was never added to the view tree — a blank map
+  that was also dead to touch. The width and height are now matched with a 1pt
+  tolerance, which covers fractional and whole-point layouts alike. Older devices
+  happened to land on whole points, which is why the exact check worked there.
+  This affects the same heuristic in `@capacitor/google-maps`, from which it was
+  ported.
+
 ## [0.5.1]
 
 ### Changed
