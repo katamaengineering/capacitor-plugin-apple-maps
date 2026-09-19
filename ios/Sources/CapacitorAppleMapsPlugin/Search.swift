@@ -24,6 +24,27 @@ private func parseRegion(_ region: JSObject?) -> (region: MKCoordinateRegion, ce
     )
 }
 
+/// What `searchAutocomplete` returns when the caller does not say.
+let defaultCompleterResultTypes: MKLocalSearchCompleter.ResultType = [.address, .pointOfInterest]
+
+/// Reads the optional `resultTypes` string list into completer result types.
+/// Unknown names are ignored, and a list that names nothing usable falls back
+/// to the default: an empty option set would make the completer return no
+/// suggestions at all, which reads as a broken search rather than a filter.
+func parseCompleterResultTypes(_ names: [String]?) -> MKLocalSearchCompleter.ResultType {
+    guard let names = names else { return defaultCompleterResultTypes }
+    var types: MKLocalSearchCompleter.ResultType = []
+    for name in names {
+        switch name {
+        case "address": types.insert(.address)
+        case "pointOfInterest": types.insert(.pointOfInterest)
+        case "query": types.insert(.query)
+        default: break
+        }
+    }
+    return types.isEmpty ? defaultCompleterResultTypes : types
+}
+
 /// A "City, State" style secondary line, skipping the locality when it just
 /// repeats the primary name.
 private func placeSubtitle(for placemark: MKPlacemark, name: String?) -> String {
@@ -64,7 +85,7 @@ class SearchService: NSObject, MKLocalSearchCompleterDelegate {
     private func ensureCompleter() {
         if completer == nil {
             let newCompleter = MKLocalSearchCompleter()
-            newCompleter.resultTypes = [.address, .pointOfInterest]
+            newCompleter.resultTypes = defaultCompleterResultTypes
             newCompleter.delegate = self
             completer = newCompleter
         }
@@ -73,6 +94,7 @@ class SearchService: NSObject, MKLocalSearchCompleterDelegate {
     func autocomplete(_ call: CAPPluginCall) {
         let query = call.getString("query") ?? ""
         let regionObj = call.getObject("region")
+        let resultTypes = parseCompleterResultTypes(call.getArray("resultTypes") as? [String])
         DispatchQueue.main.async {
             self.pendingCall?.resolve(["results": []])
 
@@ -91,6 +113,10 @@ class SearchService: NSObject, MKLocalSearchCompleterDelegate {
             if let parsed = parseRegion(regionObj) {
                 completer.region = parsed.region
             }
+            // Set on every call, not only when given: the completer is shared, so
+            // a call without the option must get the default back rather than
+            // inherit the previous caller's filter.
+            completer.resultTypes = resultTypes
 
             self.pendingCall = call
             completer.queryFragment = query

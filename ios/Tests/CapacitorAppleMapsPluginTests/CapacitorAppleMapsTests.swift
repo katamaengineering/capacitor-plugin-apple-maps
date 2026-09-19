@@ -460,4 +460,31 @@ extension CapacitorAppleMapsTests {
         XCTAssertEqual(AppleMapConfig.parsePadding(nil), .zero)
         XCTAssertEqual(AppleMapConfig.parsePadding("not an object"), .zero)
     }
+
+    // MARK: - Autocomplete result types
+
+    /// No option at all keeps the behaviour every existing caller relies on.
+    func testResultTypesDefaultWhenOmitted() {
+        XCTAssertEqual(parseCompleterResultTypes(nil), [.address, .pointOfInterest])
+    }
+
+    /// A "where" field asks for addresses alone and must not get landmarks back.
+    func testResultTypesAddressOnly() {
+        XCTAssertEqual(parseCompleterResultTypes(["address"]), [.address])
+    }
+
+    func testResultTypesCombine() {
+        XCTAssertEqual(parseCompleterResultTypes(["pointOfInterest", "query"]), [.pointOfInterest, .query])
+    }
+
+    /// An empty option set makes the completer return nothing, which looks like
+    /// a broken search - so nothing usable means the default, not silence.
+    func testResultTypesFallBackWhenNothingUsable() {
+        XCTAssertEqual(parseCompleterResultTypes([]), defaultCompleterResultTypes)
+        XCTAssertEqual(parseCompleterResultTypes(["landmark"]), defaultCompleterResultTypes)
+    }
+
+    func testResultTypesIgnoreUnknownNames() {
+        XCTAssertEqual(parseCompleterResultTypes(["address", "landmark"]), [.address])
+    }
 }

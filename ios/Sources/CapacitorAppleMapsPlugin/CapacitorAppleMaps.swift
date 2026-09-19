@@ -280,6 +280,16 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
                 self.mapView.frame = target.bounds
                 self.mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
                 target.addSubview(self.mapView)
+            } else {
+                // The mount depends on finding WebKit's private child scroll view
+                // for the map element (see getTargetContainer). If that ever fails
+                // again on a future iOS, the map is silently never added to the
+                // view tree — a blank, touch-dead map with no error. Leave a
+                // breadcrumb so that failure is diagnosable from the console
+                // instead of a mystery. onMapReady still fires below, as before.
+                CAPLog.print("[AppleMaps] getTargetContainer found no container to mount into "
+                    + "(ref=\(self.config.width)x\(self.config.height)); map will not render. "
+                    + "Likely a WebKit view-tree change — inspect the WKWebView's scroll views.")
             }
 
             self.delegate?.notifyListeners("onMapReady", data: ["mapId": self.id])

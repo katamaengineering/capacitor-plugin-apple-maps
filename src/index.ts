@@ -1,4 +1,4 @@
-import type { SearchCompletion, SearchRegion, SearchResult } from './definitions';
+import type { SearchCompletion, SearchRegion, SearchResult, SearchResultType } from './definitions';
 import { CapacitorAppleMaps } from './implementation';
 
 export * from './definitions';
@@ -13,6 +13,7 @@ export type { CreateMapArgs } from './map';
 export function searchAutocomplete(options: {
   query: string;
   region?: SearchRegion;
+  resultTypes?: SearchResultType[];
 }): Promise<{ results: SearchCompletion[] }> {
   return CapacitorAppleMaps.searchAutocomplete(options);
 }

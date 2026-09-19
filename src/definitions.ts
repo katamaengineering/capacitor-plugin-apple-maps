@@ -279,6 +279,16 @@ export interface ClusterClickCallbackData {
   markerIds: string[];
 }
 
+/**
+ * A kind of suggestion `searchAutocomplete` may return, mirroring
+ * `MKLocalSearchCompleter.ResultType`.
+ *
+ * - `address` - towns, postal codes, regions and street addresses.
+ * - `pointOfInterest` - businesses and landmarks.
+ * - `query` - search-query suggestions ("coffee near me") rather than places.
+ */
+export type SearchResultType = 'address' | 'pointOfInterest' | 'query';
+
 /** One type-ahead suggestion from `searchAutocomplete`. */
 export interface SearchCompletion {
   /** Opaque id to pass to `searchResolve`. */
@@ -376,8 +386,18 @@ export interface CapacitorAppleMapsPlugin {
    * Type-ahead place autocomplete via `MKLocalSearchCompleter`. Needs no API
    * key. Pass `region` to bias suggestions toward the area in view. Each result
    * carries an opaque `id`; pass it to {@link searchResolve} to get coordinates.
+   *
+   * Pass `resultTypes` to choose what kinds of suggestion come back - e.g.
+   * `['address']` for a "where" field that wants towns, postal codes and street
+   * addresses but not airports and coffee shops. Defaults to
+   * `['address', 'pointOfInterest']`; an empty or unrecognised list falls back
+   * to that default rather than returning nothing.
    */
-  searchAutocomplete(options: { query: string; region?: SearchRegion }): Promise<{ results: SearchCompletion[] }>;
+  searchAutocomplete(options: {
+    query: string;
+    region?: SearchRegion;
+    resultTypes?: SearchResultType[];
+  }): Promise<{ results: SearchCompletion[] }>;
   /**
    * One-shot place search via `MKLocalSearch`. Unlike {@link searchAutocomplete}
    * the results carry coordinates up front. Pass `region` to scope/bias results,

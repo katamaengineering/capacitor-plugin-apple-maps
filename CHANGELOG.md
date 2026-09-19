@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3]
+
+### Added
+
+- **`searchAutocomplete` takes `resultTypes`.** The completer was fixed at
+  addresses plus points of interest, so a field that only ever means "where" —
+  typing "Charleston" to move a search — got the airport and City Hall ahead of
+  the town. Pass `resultTypes: ['address']` for towns, postal codes and street
+  addresses only; `'pointOfInterest'` and `'query'` are the other two values,
+  mirroring `MKLocalSearchCompleter.ResultType`. Omitted, the behaviour is
+  unchanged (`['address', 'pointOfInterest']`), and a list that names nothing
+  usable falls back to that default rather than silencing the completer.
+
 ## [0.5.2]
 
 ### Fixed

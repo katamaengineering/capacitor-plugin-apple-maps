@@ -109,6 +109,9 @@ import { searchAutocomplete, searchPlaces, searchResolve } from 'capacitor-plugi
 const { results } = await searchAutocomplete({ query: 'coffee' });
 const place = await searchResolve({ id: results[0].id });
 
+// A "where" field: towns, postal codes and addresses, no businesses or landmarks.
+const { results: towns } = await searchAutocomplete({ query: 'Charleston', resultTypes: ['address'] });
+
 // Or a one-shot search that returns coordinates up front.
 const { results: places } = await searchPlaces({ query: 'Fenway Park', limit: 5 });
 ```
@@ -601,16 +604,22 @@ base map with the marker pins and overlays composited on top.
 ### searchAutocomplete(...)
 
 ```typescript
-searchAutocomplete(options: { query: string; region?: SearchRegion; }) => Promise<{ results: SearchCompletion[]; }>
+searchAutocomplete(options: { query: string; region?: SearchRegion; resultTypes?: SearchResultType[]; }) => Promise<{ results: SearchCompletion[]; }>
 ```
 
 Type-ahead place autocomplete via `MKLocalSearchCompleter`. Needs no API
 key. Pass `region` to bias suggestions toward the area in view. Each result
 carries an opaque `id`; pass it to {@link searchResolve} to get coordinates.
 
-| Param         | Type                                                                               |
-| ------------- | ---------------------------------------------------------------------------------- |
-| **`options`** | <code>{ query: string; region?: <a href="#searchregion">SearchRegion</a>; }</code> |
+Pass `resultTypes` to choose what kinds of suggestion come back - e.g.
+`['address']` for a "where" field that wants towns, postal codes and street
+addresses but not airports and coffee shops. Defaults to
+`['address', 'pointOfInterest']`; an empty or unrecognised list falls back
+to that default rather than returning nothing.
+
+| Param         | Type                                                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **`options`** | <code>{ query: string; region?: <a href="#searchregion">SearchRegion</a>; resultTypes?: SearchResultType[]; }</code> |
 
 **Returns:** <code>Promise&lt;{ results: SearchCompletion[]; }&gt;</code>
 
@@ -1195,6 +1204,18 @@ Forces the map's light/dark appearance regardless of the device setting, via
 `overrideUserInterfaceStyle`. `default` follows the system.
 
 <code>'default' | 'light' | 'dark'</code>
+
+
+#### SearchResultType
+
+A kind of suggestion `searchAutocomplete` may return, mirroring
+`MKLocalSearchCompleter.ResultType`.
+
+- `address` - towns, postal codes, regions and street addresses.
+- `pointOfInterest` - businesses and landmarks.
+- `query` - search-query suggestions ("coffee near me") rather than places.
+
+<code>'address' | 'pointOfInterest' | 'query'</code>
 
 
 #### MapLongClickCallbackData
