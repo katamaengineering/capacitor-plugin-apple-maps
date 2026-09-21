@@ -42,6 +42,8 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         CAPPluginMethod(name: "searchAutocomplete", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchPlaces", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "searchResolve", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "reverseGeocode", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "geocode", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "onResize", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "onDisplay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "onScroll", returnType: CAPPluginReturnPromise)
@@ -56,6 +58,7 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
 
     var maps = [String: Map]()
     private let searchService = SearchService()
+    private let geocodeService = GeocodeService()
 
     // MARK: - App lifecycle
 
@@ -203,6 +206,16 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
 
     @objc func searchResolve(_ call: CAPPluginCall) {
         searchService.resolve(call)
+    }
+
+    // MARK: - Geocoding
+
+    @objc func reverseGeocode(_ call: CAPPluginCall) {
+        geocodeService.reverse(call)
+    }
+
+    @objc func geocode(_ call: CAPPluginCall) {
+        geocodeService.forward(call)
     }
 
     // MARK: - MKMapViewDelegate

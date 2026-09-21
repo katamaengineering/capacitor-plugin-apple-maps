@@ -321,6 +321,34 @@ export interface SearchRegion {
 }
 
 /**
+ * A place from `reverseGeocode` or `geocode`. Every field is optional: MapKit
+ * fills in what it knows, and an empty object means nothing was found.
+ */
+export interface GeocodeResult {
+  /**
+   * The whole address on one line, formatted for the place's own country -
+   * e.g. `1 Main St, Boston MA 02110, United States`. The field to show a reader.
+   */
+  address?: string;
+  /** MapKit's name for the place - a landmark, a street address, or a town. */
+  name?: string;
+  /** House number and street, e.g. `1 Main St`. */
+  street?: string;
+  /** City or town. */
+  locality?: string;
+  /** Neighbourhood or district. */
+  subLocality?: string;
+  /** State, province or region - abbreviated where that is the convention. */
+  administrativeArea?: string;
+  postalCode?: string;
+  country?: string;
+  /** ISO 3166-1 alpha-2, e.g. `US`. */
+  countryCode?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+/**
  * Low-level bridge to the native MapKit implementation. Most callers should use
  * the {@link AppleMap} wrapper instead of these methods directly.
  */
@@ -415,6 +443,24 @@ export interface CapacitorAppleMapsPlugin {
    * Returns an empty object if the id is unknown or has no location.
    */
   searchResolve(options: { id: string }): Promise<{ lat?: number; lng?: number; title?: string }>;
+
+  /**
+   * Coordinates to an address via `CLGeocoder`. Needs no API key. Pass
+   * `language` (a BCP 47 tag such as `es` or `fr-CA`) to localise the result;
+   * it defaults to the device language.
+   *
+   * Fails soft: no match, an offline device and Apple's rate limit all resolve
+   * an empty object rather than rejecting. Apple throttles geocoding per app, so
+   * call this once per user action, not on every location update.
+   */
+  reverseGeocode(options: { latitude: number; longitude: number; language?: string }): Promise<GeocodeResult>;
+  /**
+   * A typed address to coordinates via `CLGeocoder`. Needs no API key. For
+   * type-ahead or business names prefer {@link searchAutocomplete} /
+   * {@link searchPlaces}; this is the fallback for free text. Fails soft like
+   * {@link reverseGeocode}: check for `latitude` before using the result.
+   */
+  geocode(options: { address: string; language?: string }): Promise<GeocodeResult>;
 
   /** Keep the native frame in sync as the element resizes. */
   onResize(options: { id: string; mapBounds: MapBounds }): Promise<void>;

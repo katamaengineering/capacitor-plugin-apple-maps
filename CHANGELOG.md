@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4]
+
+### Added
+
+- **`reverseGeocode` and `geocode`.** The plugin could turn typed text into a
+  place but had no way to turn a device fix into an address, so an app that
+  dropped its Google key on iOS lost the "searching near ..." line entirely.
+  Both wrap `CLGeocoder`, need no key, and take an optional `language`. They
+  return a `GeocodeResult` - a one-line, locale-formatted `address` plus the
+  individual parts and coordinates - and fail soft with an empty object, like
+  `searchResolve`. `@capacitor/google-maps` has no geocoder, so there is no
+  counterpart API to mirror.
+
 ## [0.5.3]
 
 ### Added

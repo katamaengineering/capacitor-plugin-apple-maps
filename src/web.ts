@@ -132,6 +132,14 @@ export class CapacitorAppleMapsWeb extends WebPlugin implements CapacitorAppleMa
     this.notAvailable();
   }
 
+  async reverseGeocode(): Promise<never> {
+    this.notAvailable();
+  }
+
+  async geocode(): Promise<never> {
+    this.notAvailable();
+  }
+
   async onResize(): Promise<void> {
     this.notAvailable();
   }

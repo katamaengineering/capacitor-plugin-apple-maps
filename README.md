@@ -116,6 +116,22 @@ const { results: towns } = await searchAutocomplete({ query: 'Charleston', resul
 const { results: places } = await searchPlaces({ query: 'Fenway Park', limit: 5 });
 ```
 
+### Geocoding
+
+Also key-free, via `CLGeocoder`. Both resolve an empty object rather than
+rejecting when nothing is found, the device is offline, or Apple's per-app rate
+limit kicks in - so geocode once per user action, not per location update.
+
+```ts
+import { reverseGeocode, geocode } from 'capacitor-plugin-apple-maps';
+
+// A device fix to a line you can show: "1 Main St, Boston MA 02110, United States".
+const { address, locality } = await reverseGeocode({ latitude: 42.36, longitude: -71.06 });
+
+// Free text to coordinates. Check `latitude` before using the result.
+const place = await geocode({ address: '1 Infinite Loop, Cupertino' });
+```
+
 ### Sharing one abstraction with `@capacitor/google-maps`
 
 The wrapper's method names and payload shapes (`LatLng`, `LatLngBounds`,
@@ -173,6 +189,8 @@ const map =
 * [`searchAutocomplete(...)`](#searchautocomplete)
 * [`searchPlaces(...)`](#searchplaces)
 * [`searchResolve(...)`](#searchresolve)
+* [`reverseGeocode(...)`](#reversegeocode)
+* [`geocode(...)`](#geocode)
 * [`onResize(...)`](#onresize)
 * [`onDisplay(...)`](#ondisplay)
 * [`onScroll(...)`](#onscroll)
@@ -664,6 +682,49 @@ Returns an empty object if the id is unknown or has no location.
 --------------------
 
 
+### reverseGeocode(...)
+
+```typescript
+reverseGeocode(options: { latitude: number; longitude: number; language?: string; }) => Promise<GeocodeResult>
+```
+
+Coordinates to an address via `CLGeocoder`. Needs no API key. Pass
+`language` (a BCP 47 tag such as `es` or `fr-CA`) to localise the result;
+it defaults to the device language.
+
+Fails soft: no match, an offline device and Apple's rate limit all resolve
+an empty object rather than rejecting. Apple throttles geocoding per app, so
+call this once per user action, not on every location update.
+
+| Param         | Type                                                                     |
+| ------------- | ------------------------------------------------------------------------ |
+| **`options`** | <code>{ latitude: number; longitude: number; language?: string; }</code> |
+
+**Returns:** <code>Promise&lt;<a href="#geocoderesult">GeocodeResult</a>&gt;</code>
+
+--------------------
+
+
+### geocode(...)
+
+```typescript
+geocode(options: { address: string; language?: string; }) => Promise<GeocodeResult>
+```
+
+A typed address to coordinates via `CLGeocoder`. Needs no API key. For
+type-ahead or business names prefer {@link searchAutocomplete} /
+{@link searchPlaces}; this is the fallback for free text. Fails soft like
+{@link reverseGeocode}: check for `latitude` before using the result.
+
+| Param         | Type                                                 |
+| ------------- | ---------------------------------------------------- |
+| **`options`** | <code>{ address: string; language?: string; }</code> |
+
+**Returns:** <code>Promise&lt;<a href="#geocoderesult">GeocodeResult</a>&gt;</code>
+
+--------------------
+
+
 ### onResize(...)
 
 ```typescript
@@ -1088,6 +1149,26 @@ One coordinate-bearing result from `searchPlaces`.
 | **`subtitle`**  | <code>string</code> |                                                                         |
 | **`latitude`**  | <code>number</code> |                                                                         |
 | **`longitude`** | <code>number</code> |                                                                         |
+
+
+#### GeocodeResult
+
+A place from `reverseGeocode` or `geocode`. Every field is optional: MapKit
+fills in what it knows, and an empty object means nothing was found.
+
+| Prop                     | Type                | Description                                                                                                                                          |
+| ------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`address`**            | <code>string</code> | The whole address on one line, formatted for the place's own country - e.g. `1 Main St, Boston MA 02110, United States`. The field to show a reader. |
+| **`name`**               | <code>string</code> | MapKit's name for the place - a landmark, a street address, or a town.                                                                               |
+| **`street`**             | <code>string</code> | House number and street, e.g. `1 Main St`.                                                                                                           |
+| **`locality`**           | <code>string</code> | City or town.                                                                                                                                        |
+| **`subLocality`**        | <code>string</code> | Neighbourhood or district.                                                                                                                           |
+| **`administrativeArea`** | <code>string</code> | State, province or region - abbreviated where that is the convention.                                                                                |
+| **`postalCode`**         | <code>string</code> |                                                                                                                                                      |
+| **`country`**            | <code>string</code> |                                                                                                                                                      |
+| **`countryCode`**        | <code>string</code> | ISO 3166-1 alpha-2, e.g. `US`.                                                                                                                       |
+| **`latitude`**           | <code>number</code> |                                                                                                                                                      |
+| **`longitude`**          | <code>number</code> |                                                                                                                                                      |
 
 
 #### MapBounds

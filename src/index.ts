@@ -1,4 +1,4 @@
-import type { SearchCompletion, SearchRegion, SearchResult, SearchResultType } from './definitions';
+import type { GeocodeResult, SearchCompletion, SearchRegion, SearchResult, SearchResultType } from './definitions';
 import { CapacitorAppleMaps } from './implementation';
 
 export * from './definitions';
@@ -34,4 +34,21 @@ export function searchPlaces(options: {
 /** Resolve a suggestion id (from either search method) to coordinates (iOS). */
 export function searchResolve(options: { id: string }): Promise<{ lat?: number; lng?: number; title?: string }> {
   return CapacitorAppleMaps.searchResolve(options);
+}
+
+/**
+ * Coordinates to an address (iOS, `CLGeocoder`). No API key needed. Resolves an
+ * empty object when nothing could be found - read `address` for a display line.
+ */
+export function reverseGeocode(options: {
+  latitude: number;
+  longitude: number;
+  language?: string;
+}): Promise<GeocodeResult> {
+  return CapacitorAppleMaps.reverseGeocode(options);
+}
+
+/** A typed address to coordinates (iOS, `CLGeocoder`). Empty object when nothing matched. */
+export function geocode(options: { address: string; language?: string }): Promise<GeocodeResult> {
+  return CapacitorAppleMaps.geocode(options);
 }
