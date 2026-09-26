@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5]
+
+### Added
+
+- **`Marker.iconAnchor`.** Icons were always anchored bottom-centre - correct for
+  a teardrop pin whose tip marks the spot, but impossible for anything meant to
+  sit centred on the coordinate (a "you are here" dot, a circular avatar, a square
+  badge), which floated half its height north. `iconAnchor: { x, y }` places any
+  point of the image - in 0..1 fractions from its top-left - on the coordinate;
+  `{ x: 0.5, y: 0.5 }` centres it. Omitting it keeps the bottom-centre default, so
+  existing markers are unchanged. Honoured on the live map and in snapshots, and
+  resettable to the default through `updateMarkers` by passing `null`.
+
 ## [0.5.4]
 
 ### Added

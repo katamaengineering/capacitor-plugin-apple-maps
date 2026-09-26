@@ -272,7 +272,7 @@ public class CapacitorAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDel
         view.centerOffset = .zero
         if hasIcon, let image = map.annotationImage(for: marker, in: mapView) {
             view.image = image
-            view.centerOffset = CGPoint(x: 0, y: -image.size.height / 2)
+            view.centerOffset = marker.centerOffset(for: image.size)
         }
         // The native callout stays off - we render our own bubble (Callout.swift),
         // because MapKit's callout doesn't show through the web-view compositing.

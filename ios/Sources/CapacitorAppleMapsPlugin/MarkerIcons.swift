@@ -74,8 +74,8 @@ extension Map {
                 if let view = mapView?.view(for: marker) {
                     let sized = self.resize(image, marker.iconSize)
                     view.image = sized
-                    if let height = sized?.size.height {
-                        view.centerOffset = CGPoint(x: 0, y: -height / 2)
+                    if let sized = sized {
+                        view.centerOffset = marker.centerOffset(for: sized.size)
                     }
                 }
             }

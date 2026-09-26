@@ -76,19 +76,9 @@ func regionCorners(center: CLLocationCoordinate2D, span: MKCoordinateSpan)
 }
 
 // MARK: - Annotation
-
-/// A map pin carrying a stable id echoed back to JS on tap. The id is generated
-/// unless the caller supplied one in the marker payload.
-class AppleMapMarker: MKPointAnnotation {
-    var markerId: String = UUID().uuidString
-    var iconUrl: String?
-    var iconSize: CGSize?
-    /// When true the pin can be dragged (press-and-hold, then move), emitting the
-    /// `onMarkerDrag*` events. Dragging is driven by a long-press recognizer on the
-    /// map rather than `MKAnnotationView.isDraggable`, so intermediate coordinates
-    /// stream to JS instead of only the drop point.
-    var isDraggable = false
-}
+//
+// The pin model, `AppleMapMarker`, lives in AppleMapMarker.swift (kept there so
+// this file stays within SwiftLint's length budget).
 
 /// Stroke/fill styling for an overlay, resolved from the JS payload and looked
 /// up by the map's `rendererFor` delegate when MapKit asks how to draw it.
@@ -404,11 +394,8 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
         marker.subtitle = obj["snippet"] as? String
         marker.iconUrl = obj["iconUrl"] as? String
         marker.isDraggable = obj["draggable"] as? Bool ?? false
-        if let sizeObj = obj["iconSize"] as? JSObject,
-           let width = sizeObj["width"] as? Double,
-           let height = sizeObj["height"] as? Double {
-            marker.iconSize = CGSize(width: width, height: height)
-        }
+        marker.iconSize = AppleMapMarker.parseSize(obj["iconSize"])
+        marker.iconAnchor = AppleMapMarker.parseAnchor(obj["iconAnchor"])
         return marker
     }
 
@@ -452,18 +439,10 @@ public class Map: NSObject, UIGestureRecognizerDelegate {
                     // needed to enable/disable dragging.
                     marker.isDraggable = obj["draggable"] as? Bool ?? false
                 }
-                var iconChanged = false
-                if obj.keys.contains("iconUrl") {
-                    marker.iconUrl = obj["iconUrl"] as? String
-                    iconChanged = true
-                }
-                if let sizeObj = obj["iconSize"] as? JSObject,
-                   let width = sizeObj["width"] as? Double,
-                   let height = sizeObj["height"] as? Double {
-                    marker.iconSize = CGSize(width: width, height: height)
-                    iconChanged = true
-                }
-                if iconChanged { toRefresh.append(marker) }
+                // Icon fields (url / size / anchor) re-render the annotation so
+                // viewFor reapplies the image and centerOffset; the fields above
+                // mutate in place. See AppleMapMarker.applyIconUpdates.
+                if marker.applyIconUpdates(from: obj) { toRefresh.append(marker) }
             }
             if !toRefresh.isEmpty {
                 self.mapView.removeAnnotations(toRefresh)

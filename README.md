@@ -87,6 +87,17 @@ web asset** filename (copied into the app bundle under `public/` - e.g.
 `marker-blue.png` from your web `static/`), an **`https:` URL**, or a **`data:`
 URI**. SVG is not supported.
 
+By default an icon is anchored by its **bottom centre**, so a teardrop pin's tip
+marks the spot. For art that should sit **centred** on the coordinate - a "you
+are here" dot, a circular avatar, a square badge - pass `iconAnchor` as fractions
+of the image from its top-left:
+
+```ts
+await map.addMarkers([
+  { coordinate: here, iconUrl: 'you-are-here.png', iconAnchor: { x: 0.5, y: 0.5 } },
+]);
+```
+
 ### Overlays
 
 ```ts
@@ -1050,15 +1061,16 @@ The map's current camera, returned by {@link CapacitorAppleMapsPlugin.getCameraP
 
 #### Marker
 
-| Prop             | Type                                            | Description                                                                                                                                                                                                                                                                                    |
-| ---------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |                                                                                                                                                                                                                                                                                                |
-| **`title`**      | <code>string</code>                             |                                                                                                                                                                                                                                                                                                |
-| **`snippet`**    | <code>string</code>                             | Secondary line shown under `title` in the info-window bubble (see `showInfoWindows`).                                                                                                                                                                                                          |
-| **`iconUrl`**    | <code>string</code>                             | Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`), an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. Omit it to get MapKit's native default pin.                                                                                                       |
-| **`iconSize`**   | <code>{ width: number; height: number; }</code> | Logical size in points.                                                                                                                                                                                                                                                                        |
-| **`markerId`**   | <code>string</code>                             | Caller-supplied stable id. When set it is used verbatim (and echoed back from {@link CapacitorAppleMapsPlugin.addMarkers} and on tap) instead of a generated one, so the host can map pins back to its own domain objects and target them with {@link CapacitorAppleMapsPlugin.updateMarkers}. |
-| **`draggable`**  | <code>boolean</code>                            | Let the user drag this pin (press-and-hold, then move). Fires `onMarkerDragStart` / `onMarkerDrag` / `onMarkerDragEnd`. Defaults to `false`. A pin that is currently clustered can't be dragged until it separates into its own annotation.                                                    |
+| Prop             | Type                                            | Description                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |                                                                                                                                                                                                                                                                                                                                                                        |
+| **`title`**      | <code>string</code>                             |                                                                                                                                                                                                                                                                                                                                                                        |
+| **`snippet`**    | <code>string</code>                             | Secondary line shown under `title` in the info-window bubble (see `showInfoWindows`).                                                                                                                                                                                                                                                                                  |
+| **`iconUrl`**    | <code>string</code>                             | Bundled asset filename (e.g. `marker-blue.png`, resolved from `public/`), an `https:` URL, or a `data:` URI. SVG is not supported by MapKit. Omit it to get MapKit's native default pin.                                                                                                                                                                               |
+| **`iconSize`**   | <code>{ width: number; height: number; }</code> | Logical size in points.                                                                                                                                                                                                                                                                                                                                                |
+| **`iconAnchor`** | <code>{ x: number; y: number; }</code>          | Where the icon is pinned to the coordinate, as fractions of the image measured from its top-left corner. `{ x: 0.5, y: 1 }` — the default — puts the bottom-centre on the coordinate, which suits a teardrop pin whose tip marks the spot; `{ x: 0.5, y: 0.5 }` centres the image on the coordinate, which suits a dot or a circular badge. Ignored without `iconUrl`. |
+| **`markerId`**   | <code>string</code>                             | Caller-supplied stable id. When set it is used verbatim (and echoed back from {@link CapacitorAppleMapsPlugin.addMarkers} and on tap) instead of a generated one, so the host can map pins back to its own domain objects and target them with {@link CapacitorAppleMapsPlugin.updateMarkers}.                                                                         |
+| **`draggable`**  | <code>boolean</code>                            | Let the user drag this pin (press-and-hold, then move). Fires `onMarkerDragStart` / `onMarkerDrag` / `onMarkerDragEnd`. Defaults to `false`. A pin that is currently clustered can't be dragged until it separates into its own annotation.                                                                                                                            |
 
 
 #### MarkerUpdate
@@ -1066,15 +1078,16 @@ The map's current camera, returned by {@link CapacitorAppleMapsPlugin.getCameraP
 A partial change to an existing marker, addressed by its `markerId`. Omitted
 fields are left as-is; a moved marker animates to its new coordinate.
 
-| Prop             | Type                                            | Description                                 |
-| ---------------- | ----------------------------------------------- | ------------------------------------------- |
-| **`markerId`**   | <code>string</code>                             |                                             |
-| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |                                             |
-| **`title`**      | <code>string</code>                             |                                             |
-| **`snippet`**    | <code>string</code>                             |                                             |
-| **`iconUrl`**    | <code>string</code>                             |                                             |
-| **`iconSize`**   | <code>{ width: number; height: number; }</code> |                                             |
-| **`draggable`**  | <code>boolean</code>                            | Enable or disable dragging for this marker. |
+| Prop             | Type                                            | Description                                                                                             |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **`markerId`**   | <code>string</code>                             |                                                                                                         |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>       |                                                                                                         |
+| **`title`**      | <code>string</code>                             |                                                                                                         |
+| **`snippet`**    | <code>string</code>                             |                                                                                                         |
+| **`iconUrl`**    | <code>string</code>                             |                                                                                                         |
+| **`iconSize`**   | <code>{ width: number; height: number; }</code> |                                                                                                         |
+| **`iconAnchor`** | <code>{ x: number; y: number; } \| null</code>  | See {@link <a href="#marker">Marker.iconAnchor</a>}. Pass `null` to reset to the bottom-centre default. |
+| **`draggable`**  | <code>boolean</code>                            | Enable or disable dragging for this marker.                                                             |
 
 
 #### Polyline

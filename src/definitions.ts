@@ -134,6 +134,14 @@ export interface Marker {
   /** Logical size in points. */
   iconSize?: { width: number; height: number };
   /**
+   * Where the icon is pinned to the coordinate, as fractions of the image
+   * measured from its top-left corner. `{ x: 0.5, y: 1 }` — the default — puts
+   * the bottom-centre on the coordinate, which suits a teardrop pin whose tip
+   * marks the spot; `{ x: 0.5, y: 0.5 }` centres the image on the coordinate,
+   * which suits a dot or a circular badge. Ignored without `iconUrl`.
+   */
+  iconAnchor?: { x: number; y: number };
+  /**
    * Caller-supplied stable id. When set it is used verbatim (and echoed back
    * from {@link CapacitorAppleMapsPlugin.addMarkers} and on tap) instead of a
    * generated one, so the host can map pins back to its own domain objects and
@@ -160,6 +168,8 @@ export interface MarkerUpdate {
   snippet?: string;
   iconUrl?: string;
   iconSize?: { width: number; height: number };
+  /** See {@link Marker.iconAnchor}. Pass `null` to reset to the bottom-centre default. */
+  iconAnchor?: { x: number; y: number } | null;
   /** Enable or disable dragging for this marker. */
   draggable?: boolean;
 }
